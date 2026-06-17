@@ -133,11 +133,12 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ==========================================================================
-  // 3a. CONEXÃO E GERENCIAMENTO DO BANCO DE DADOS EM NUVEM (SUPABASE)
+  // 3a. CONEXÃO E GERENCIAMENTO DO BANCO DE DADOS EM NUVEM (FIREBASE)
   // ==========================================================================
-  let supabaseClient = null;
   let isCloudEnabled = false;
   let currentUser = null;
+  let db = null;
+  let auth = null;
 
   // Ícones SVG para status da nuvem (Cloud Sync Icons)
   const CLOUD_ICONS = {
@@ -166,19 +167,19 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   async function getCloudConfig() {
-    if (window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.url && window.SUPABASE_CONFIG.anonKey) {
-      return window.SUPABASE_CONFIG;
+    if (window.FIREBASE_CONFIG && window.FIREBASE_CONFIG.apiKey) {
+      return window.FIREBASE_CONFIG;
     }
     
     try {
       const configScript = await new Promise((resolve) => {
         const script = document.createElement("script");
         script.src = "js/config.js";
-        script.onload = () => resolve(window.SUPABASE_CONFIG || null);
+        script.onload = () => resolve(window.FIREBASE_CONFIG || null);
         script.onerror = () => resolve(null);
         document.head.appendChild(script);
       });
-      if (configScript && configScript.url && configScript.anonKey) {
+      if (configScript && configScript.apiKey) {
         return configScript;
       }
     } catch (e) {
@@ -189,11 +190,8 @@ document.addEventListener("DOMContentLoaded", () => {
       const res = await fetch("/api/config");
       if (res.ok) {
         const data = await res.json();
-        if (data.supabaseUrl && data.supabaseAnonKey) {
-          return {
-            url: data.supabaseUrl,
-            anonKey: data.supabaseAnonKey
-          };
+        if (data.apiKey) {
+          return data;
         }
       }
     } catch (e) {
@@ -202,45 +200,42 @@ document.addEventListener("DOMContentLoaded", () => {
     return null;
   }
 
-  async function initSupabase() {
+  async function initFirebase() {
     const config = await getCloudConfig();
     if (!config) {
-      console.log("Supabase não configurado. Continuando no modo local (offline).");
+      console.log("Firebase não configurado. Continuando no modo local (offline).");
       updateSyncIndicator("offline");
       return false;
     }
     
     try {
-      supabaseClient = supabase.createClient(config.url, config.anonKey);
+      firebase.initializeApp(config);
+      auth = firebase.auth();
+      db = firebase.firestore();
       isCloudEnabled = true;
-      console.log("Supabase inicializado com sucesso!");
+      console.log("Firebase inicializado com sucesso!");
       
-      const { data: { session } } = await supabaseClient.auth.getSession();
-      if (session) {
-        currentUser = session.user;
-        updateSyncIndicator("online");
-        updateCloudUI(true, currentUser.email);
-      } else {
-        currentUser = null;
-        updateSyncIndicator("offline");
-        updateCloudUI(false, "");
-      }
-
-      supabaseClient.auth.onAuthStateChange(async (event, session) => {
-        if (session) {
-          currentUser = session.user;
+      auth.onAuthStateChanged(async (user) => {
+        if (user) {
+          const isNewUser = !currentUser || currentUser.uid !== user.uid;
+          currentUser = user;
           updateSyncIndicator("online");
           updateCloudUI(true, currentUser.email);
+          hideAuthOverlay();
+          if (isNewUser) {
+            await loadState();
+          }
         } else {
           currentUser = null;
           updateSyncIndicator("offline");
           updateCloudUI(false, "");
+          showAuthOverlay();
         }
       });
       
       return true;
     } catch (err) {
-      console.error("Erro ao inicializar Supabase:", err);
+      console.error("Erro ao inicializar Firebase:", err);
       updateSyncIndicator("error");
       return false;
     }
@@ -303,8 +298,8 @@ document.addEventListener("DOMContentLoaded", () => {
   if (btnAdminDisconnect) {
     btnAdminDisconnect.addEventListener("click", async () => {
       if (confirm("Deseja realmente desconectar e voltar ao Modo Local (Offline)?")) {
-        if (supabaseClient) {
-          await supabaseClient.auth.signOut();
+        if (auth) {
+          await auth.signOut();
           updateCloudUI(false, "");
           updateSyncIndicator("offline");
           alert("Desconectado com sucesso! O sistema voltou ao Modo Local.");
@@ -324,8 +319,8 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      if (!supabaseClient) {
-        alert("Erro: Cliente de banco de dados não inicializado.");
+      if (!auth) {
+        alert("Erro: Serviço de autenticação não inicializado.");
         return;
       }
 
@@ -333,15 +328,9 @@ document.addEventListener("DOMContentLoaded", () => {
       btnAuthSignin.innerText = "Conectando...";
 
       try {
-        const { data, error } = await supabaseClient.auth.signInWithPassword({
-          email,
-          password
-        });
-
-        if (error) throw error;
-
+        const userCredential = await auth.signInWithEmailAndPassword(email, password);
         hideAuthOverlay();
-        currentUser = data.user;
+        currentUser = userCredential.user;
         updateSyncIndicator("online");
         updateCloudUI(true, currentUser.email);
         alert("Conectado com sucesso!");
@@ -369,8 +358,8 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      if (!supabaseClient) {
-        alert("Erro: Cliente de banco de dados não inicializado.");
+      if (!auth) {
+        alert("Erro: Serviço de autenticação não inicializado.");
         return;
       }
 
@@ -378,23 +367,13 @@ document.addEventListener("DOMContentLoaded", () => {
       btnAuthSignup.innerText = "Criando...";
 
       try {
-        const { data, error } = await supabaseClient.auth.signUp({
-          email,
-          password
-        });
-
-        if (error) throw error;
-
-        if (data.user && data.session === null) {
-          alert("Conta criada com sucesso! Por favor, verifique sua caixa de entrada para confirmar o e-mail de ativação.");
-        } else if (data.user && data.session) {
-          hideAuthOverlay();
-          currentUser = data.user;
-          updateSyncIndicator("online");
-          updateCloudUI(true, currentUser.email);
-          alert("Conta criada e conectada com sucesso!");
-          await loadState();
-        }
+        const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+        hideAuthOverlay();
+        currentUser = userCredential.user;
+        updateSyncIndicator("online");
+        updateCloudUI(true, currentUser.email);
+        alert("Conta criada e conectada com sucesso!");
+        await loadState();
       } catch (err) {
         alert("Erro ao criar conta: " + (err.message || err));
       } finally {
@@ -461,18 +440,11 @@ document.addEventListener("DOMContentLoaded", () => {
     if (isCloudEnabled && currentUser) {
       updateSyncIndicator("syncing");
       try {
-        const { data, error } = await supabaseClient
-          .from("financial_data")
-          .select("state")
-          .eq("user_id", currentUser.id)
-          .single();
+        const docRef = db.collection("financial_data").doc(currentUser.uid);
+        const doc = await docRef.get();
 
-        if (error && error.code !== "PGRST116") {
-          throw error;
-        }
-
-        if (data && data.state) {
-          const cloudState = data.state;
+        if (doc.exists && doc.data().state) {
+          const cloudState = doc.data().state;
           state.cards = cloudState.cards || [];
           state.expenses = cloudState.expenses || [];
           state.revenues = cloudState.revenues || [];
@@ -506,7 +478,7 @@ document.addEventListener("DOMContentLoaded", () => {
           }
         }
       } catch (err) {
-        console.error("Erro ao carregar dados do banco de dados:", err);
+        console.error("Erro ao carregar dados do Firebase Firestore:", err);
         updateSyncIndicator("error");
       }
     }
@@ -547,18 +519,15 @@ document.addEventListener("DOMContentLoaded", () => {
           theme: state.theme
         };
 
-        const { error } = await supabaseClient
-          .from("financial_data")
-          .upsert({ 
-            user_id: currentUser.id, 
-            state: payload,
-            updated_at: new Date().toISOString()
-          });
+        const docRef = db.collection("financial_data").doc(currentUser.uid);
+        await docRef.set({
+          state: payload,
+          updated_at: new Date().toISOString()
+        });
 
-        if (error) throw error;
         updateSyncIndicator("online");
       } catch (err) {
-        console.error("Erro ao sincronizar dados na nuvem:", err);
+        console.error("Erro ao sincronizar dados na nuvem com Firestore:", err);
         updateSyncIndicator("error");
       }
     }
@@ -2918,10 +2887,8 @@ document.addEventListener("DOMContentLoaded", () => {
       if (confirm("Tem certeza que deseja restaurar o banco de dados? Todos os seus dados cadastrados serão perdidos!")) {
         if (isCloudEnabled && currentUser) {
           try {
-            await supabaseClient
-              .from("financial_data")
-              .delete()
-              .eq("user_id", currentUser.id);
+            const docRef = db.collection("financial_data").doc(currentUser.uid);
+            await docRef.delete();
           } catch (err) {
             console.error("Erro ao limpar dados na nuvem:", err);
           }
@@ -2936,7 +2903,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // 12. BOOTSTRAP DO SISTEMA
   // ==========================================================================
   injectSVGIcons();
-  initSupabase().then(() => {
+  initFirebase().then(() => {
     loadState();
   });
 
