@@ -567,6 +567,60 @@ document.addEventListener("DOMContentLoaded", () => {
     return dateString;
   }
 
+  function addMonthsKeepingDay(date, months) {
+    const result = new Date(date);
+    const originalDay = result.getDate();
+    result.setMonth(result.getMonth() + months, 1);
+    const lastDay = new Date(result.getFullYear(), result.getMonth() + 1, 0).getDate();
+    result.setDate(Math.min(originalDay, lastDay));
+    return result;
+  }
+
+  function getRecurringOccurrenceDates(recurringItem, month, year) {
+    const start = new Date(recurringItem.date + "T00:00:00");
+    if (Number.isNaN(start.getTime())) return [];
+
+    const end = recurringItem.endDate ? new Date(recurringItem.endDate + "T23:59:59") : null;
+    const monthStart = new Date(year, month, 1);
+    const monthEnd = new Date(year, month + 1, 0, 23, 59, 59);
+    if (monthEnd < start || (end && monthStart > end)) return [];
+
+    const dates = [];
+    const pad = (value) => String(value).padStart(2, "0");
+    const toDateString = (date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+    const isInsideSelectedMonth = (date) => {
+      return date.getMonth() === month && date.getFullYear() === year && (!end || date <= end);
+    };
+
+    if ((recurringItem.frequency || "Mensal") === "Semanal") {
+      const occurrence = new Date(start);
+      while (occurrence < monthStart) {
+        occurrence.setDate(occurrence.getDate() + 7);
+      }
+      while (occurrence <= monthEnd && (!end || occurrence <= end)) {
+        dates.push(toDateString(occurrence));
+        occurrence.setDate(occurrence.getDate() + 7);
+      }
+      return dates;
+    }
+
+    const intervalByFrequency = {
+      Mensal: 1,
+      Bimestral: 2,
+      Semestral: 6,
+      Anual: 12
+    };
+    const interval = intervalByFrequency[recurringItem.frequency || "Mensal"] || 1;
+    let occurrence = new Date(start);
+    while (occurrence <= monthEnd && (!end || occurrence <= end)) {
+      if (isInsideSelectedMonth(occurrence)) {
+        dates.push(toDateString(occurrence));
+      }
+      occurrence = addMonthsKeepingDay(occurrence, interval);
+    }
+    return dates;
+  }
+
   // Helper para obter despesas do mês selecionado, mesclando despesas reais e recorrentes virtuais
   function getMonthlyExpenses(month, year) {
     // 1. Filtrar despesas reais deste mês/ano
@@ -578,28 +632,16 @@ document.addEventListener("DOMContentLoaded", () => {
     // 2. Processar despesas recorrentes
     const virtualRecurring = [];
     state.recurring.forEach(r => {
-      const rStart = new Date(r.date + "T00:00:00");
-      const startYear = rStart.getFullYear();
-      const startMonth = rStart.getMonth();
-
-      // Aplicar se a recorrente iniciou antes ou no mês/ano atual
-      if (year > startYear || (year === startYear && month >= startMonth)) {
+      const occurrenceDates = getRecurringOccurrenceDates(r, month, year);
+      occurrenceDates.forEach((occurrenceDateStr) => {
         // Verificar se já existe uma ocorrência materializada (real) na lista de despesas
         const alreadyMaterialized = state.expenses.some(e => {
-          const d = new Date(e.date + "T00:00:00");
-          return e.parentRecurringId === r.id && d.getMonth() === month && d.getFullYear() === year;
+          return e.parentRecurringId === r.id && e.date === occurrenceDateStr;
         });
 
         if (!alreadyMaterialized) {
-          const day = rStart.getDate();
-          const lastDay = new Date(year, month + 1, 0).getDate();
-          const targetDay = Math.min(day, lastDay);
-          const monthStr = String(month + 1).padStart(2, "0");
-          const dayStr = String(targetDay).padStart(2, "0");
-          const occurrenceDateStr = `${year}-${monthStr}-${dayStr}`;
-
           virtualRecurring.push({
-            id: `virtual-rec-${r.id}-${year}-${month + 1}`,
+            id: `virtual-rec-${r.id}-${year}-${month + 1}-${occurrenceDateStr.slice(-2)}`,
             description: r.description,
             value: r.value,
             date: occurrenceDateStr,
@@ -610,13 +652,62 @@ document.addEventListener("DOMContentLoaded", () => {
             parentRecurringId: r.id
           });
         }
-      }
+      });
     });
 
     return [...realExpenses, ...virtualRecurring];
   }
 
   // Renderiza o relatório de despesas por categoria de forma dinâmica
+  function materializeVirtualRecurringExpense(id, status) {
+    const recItem = state.recurring.find(r => id.includes(`virtual-rec-${r.id}-`));
+    if (!recItem) return null;
+
+    const parts = id.split("-");
+    const initialStatus = status || ((recItem.cardId && recItem.cardId.startsWith("card-")) ? "Comprometido" : "Pendentes");
+    let occurrenceDateStr = "";
+
+    if (parts.length >= 4 && /^\d{4}$/.test(parts[parts.length - 3])) {
+      const targetYear = parseInt(parts[parts.length - 3]);
+      const targetMonthIndex = parseInt(parts[parts.length - 2]) - 1;
+      const targetDay = String(parseInt(parts[parts.length - 1])).padStart(2, "0");
+      occurrenceDateStr = `${targetYear}-${String(targetMonthIndex + 1).padStart(2, "0")}-${targetDay}`;
+    } else {
+      const targetYear = parseInt(parts[parts.length - 2]);
+      const targetMonthIndex = parseInt(parts[parts.length - 1]) - 1;
+      occurrenceDateStr = getRecurringOccurrenceDates(recItem, targetMonthIndex, targetYear)[0];
+    }
+
+    if (!occurrenceDateStr) return null;
+
+    const existingExpense = state.expenses.find(exp => {
+      return exp.parentRecurringId === recItem.id && exp.date === occurrenceDateStr;
+    });
+    if (existingExpense) return existingExpense;
+
+    const newRealExpense = {
+      id: `rec-instance-${recItem.id}-${occurrenceDateStr}`,
+      description: recItem.description,
+      value: recItem.value,
+      date: occurrenceDateStr,
+      cardId: recItem.cardId,
+      category: recItem.category,
+      status: initialStatus,
+      parentRecurringId: recItem.id
+    };
+
+    if (initialStatus === "Pagas") {
+      const today = new Date();
+      const yyyy = today.getFullYear();
+      const mm = String(today.getMonth() + 1).padStart(2, "0");
+      const dd = String(today.getDate()).padStart(2, "0");
+      newRealExpense.paymentDate = `${yyyy}-${mm}-${dd}`;
+    }
+
+    state.expenses.push(newRealExpense);
+    return newRealExpense;
+  }
+
   function renderCategoryReport() {
     const container = document.getElementById("reports-categories-container");
     if (!container) return;
@@ -1198,18 +1289,22 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    // Calcular métricas
-    const totalRecorrente = state.recurring.reduce((sum, r) => sum + r.value, 0);
+    // Calcular métricas considerando apenas recorrentes ativas no mês selecionado
+    const activeRecurring = state.recurring.map(r => {
+      const occurrences = getRecurringOccurrenceDates(r, state.selectedMonth, state.selectedYear).length;
+      return { ...r, occurrences };
+    }).filter(r => r.occurrences > 0);
+    const totalRecorrente = activeRecurring.reduce((sum, r) => sum + (r.value * r.occurrences), 0);
     
     // Assinaturas: Categoria "🍿 Lazer & Viagem"
-    const totalAssinaturas = state.recurring
+    const totalAssinaturas = activeRecurring
       .filter(r => r.category === "🍿 Lazer & Viagem")
-      .reduce((sum, r) => sum + r.value, 0);
+      .reduce((sum, r) => sum + (r.value * r.occurrences), 0);
       
     // Custos Fixos: Outras categorias (Moradia, Assinaturas & Serviços, etc. que não são Lazer & Viagem)
-    const totalFixos = state.recurring
+    const totalFixos = activeRecurring
       .filter(r => r.category !== "🍿 Lazer & Viagem")
-      .reduce((sum, r) => sum + r.value, 0);
+      .reduce((sum, r) => sum + (r.value * r.occurrences), 0);
 
     // Atualizar no DOM
     const totalEl = document.getElementById("val-recorrentes-total");
@@ -1256,6 +1351,10 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       }
 
+      const endDateHTML = r.endDate
+        ? `<div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600; margin-top: 0.15rem;">Até ${formatDateBR(r.endDate)}</div>`
+        : `<div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600; margin-top: 0.15rem;">Sem prazo final</div>`;
+
       tbodyHTML += `
         <tr id="row-rec-${r.id}">
           <td><strong>${r.description}</strong></td>
@@ -1266,7 +1365,7 @@ document.addEventListener("DOMContentLoaded", () => {
           </td>
           <td style="font-weight: 600;">${r.frequency}</td>
           <td style="font-weight: 600;">${r.category}</td>
-          <td>${formatDateBR(r.date)}</td>
+          <td>${formatDateBR(r.date)}${endDateHTML}</td>
           <td class="text-danger" style="font-weight: 700;">${formatCurrency(r.value)}</td>
           <td class="text-right">
             <div class="row-actions">
@@ -1997,42 +2096,8 @@ document.addEventListener("DOMContentLoaded", () => {
           let expense = state.expenses.find(exp => exp.id === id);
           
           if (!expense && id.startsWith("virtual-rec-")) {
-            // Materializar a despesa recorrente virtual para este mês
-            const parts = id.split("-");
-            const recItem = state.recurring.find(r => id.includes(`virtual-rec-${r.id}-`));
-            if (recItem) {
-              const targetYear = parseInt(parts[parts.length - 2]);
-              const targetMonthIndex = parseInt(parts[parts.length - 1]) - 1;
-              
-              const rStart = new Date(recItem.date + "T00:00:00");
-              const day = rStart.getDate();
-              const lastDayOfMonth = new Date(targetYear, targetMonthIndex + 1, 0).getDate();
-              const targetDay = Math.min(day, lastDayOfMonth);
-              
-              const monthStr = String(targetMonthIndex + 1).padStart(2, "0");
-              const dayStr = String(targetDay).padStart(2, "0");
-              const occurrenceDateStr = `${targetYear}-${monthStr}-${dayStr}`;
-              
-              const today = new Date();
-              const yyyy = today.getFullYear();
-              const mm = String(today.getMonth() + 1).padStart(2, "0");
-              const dd = String(today.getDate()).padStart(2, "0");
-              
-              const newRealExpense = {
-                id: `rec-instance-${recItem.id}-${targetYear}-${targetMonthIndex + 1}`,
-                description: recItem.description,
-                value: recItem.value,
-                date: occurrenceDateStr,
-                cardId: recItem.cardId,
-                category: recItem.category,
-                status: "Pagas",
-                parentRecurringId: recItem.id,
-                paymentDate: `${yyyy}-${mm}-${dd}`
-              };
-              
-              state.expenses.push(newRealExpense);
-              expense = newRealExpense;
-            }
+            // Materializar a despesa recorrente virtual para esta data específica
+            expense = materializeVirtualRecurringExpense(id, "Pagas");
           } else if (expense) {
             if (expense.status === "Pagas") {
               expense.status = "Pendentes";
@@ -2061,37 +2126,9 @@ document.addEventListener("DOMContentLoaded", () => {
           let exp = state.expenses.find(e => e.id === id);
           
           if (!exp && id.startsWith("virtual-rec-")) {
-            // Materializar a despesa recorrente virtual para este mês
-            const parts = id.split("-");
-            const recItem = state.recurring.find(r => id.includes(`virtual-rec-${r.id}-`));
-            if (recItem) {
-              const targetYear = parseInt(parts[parts.length - 2]);
-              const targetMonthIndex = parseInt(parts[parts.length - 1]) - 1;
-              
-              const rStart = new Date(recItem.date + "T00:00:00");
-              const day = rStart.getDate();
-              const lastDayOfMonth = new Date(targetYear, targetMonthIndex + 1, 0).getDate();
-              const targetDay = Math.min(day, lastDayOfMonth);
-              
-              const monthStr = String(targetMonthIndex + 1).padStart(2, "0");
-              const dayStr = String(targetDay).padStart(2, "0");
-              const occurrenceDateStr = `${targetYear}-${monthStr}-${dayStr}`;
-              
-              const newRealExpense = {
-                id: `rec-instance-${recItem.id}-${targetYear}-${targetMonthIndex + 1}`,
-                description: recItem.description,
-                value: recItem.value,
-                date: occurrenceDateStr,
-                cardId: recItem.cardId,
-                category: recItem.category,
-                status: (recItem.cardId && recItem.cardId.startsWith("card-")) ? "Comprometido" : "Pendentes",
-                parentRecurringId: recItem.id
-              };
-              
-              state.expenses.push(newRealExpense);
-              exp = newRealExpense;
-              saveState();
-            }
+            // Materializar a despesa recorrente virtual para esta data específica
+            exp = materializeVirtualRecurringExpense(id);
+            if (exp) saveState();
           }
 
           if (exp) {
@@ -2210,6 +2247,8 @@ document.addEventListener("DOMContentLoaded", () => {
             document.getElementById("rec-desc").value = rec.description;
             document.getElementById("rec-val").value = rec.value;
             document.getElementById("rec-date").value = rec.date;
+            document.getElementById("rec-end-date").value = rec.endDate || "";
+            document.getElementById("rec-duration-months").value = "";
             document.getElementById("rec-card").value = rec.cardId || "pix";
             document.getElementById("rec-frequency").value = rec.frequency || "Mensal";
             document.getElementById("rec-category").value = rec.category || "🏠 Moradia";
@@ -2656,6 +2695,35 @@ document.addEventListener("DOMContentLoaded", () => {
     btnNovoRecorrente.addEventListener("click", () => {
       document.getElementById("modal-recorrente-title").innerText = "Nova Despesa Recorrente";
       document.getElementById("rec-id").value = "";
+      document.getElementById("rec-end-date").value = "";
+      document.getElementById("rec-duration-months").value = "";
+    });
+  }
+
+  const recDateInput = document.getElementById("rec-date");
+  const recEndDateInput = document.getElementById("rec-end-date");
+  const recDurationSelect = document.getElementById("rec-duration-months");
+  function updateRecurringEndDateFromDuration() {
+    if (!recDateInput || !recEndDateInput || !recDurationSelect) return;
+    const duration = parseInt(recDurationSelect.value);
+    if (!duration) return;
+    const start = new Date(recDateInput.value + "T00:00:00");
+    if (Number.isNaN(start.getTime())) return;
+    const end = addMonthsKeepingDay(start, duration - 1);
+    const yyyy = end.getFullYear();
+    const mm = String(end.getMonth() + 1).padStart(2, "0");
+    const dd = String(end.getDate()).padStart(2, "0");
+    recEndDateInput.value = `${yyyy}-${mm}-${dd}`;
+  }
+  if (recDurationSelect) {
+    recDurationSelect.addEventListener("change", updateRecurringEndDateFromDuration);
+  }
+  if (recDateInput) {
+    recDateInput.addEventListener("change", updateRecurringEndDateFromDuration);
+  }
+  if (recEndDateInput) {
+    recEndDateInput.addEventListener("input", () => {
+      if (recDurationSelect) recDurationSelect.value = "";
     });
   }
 
@@ -2888,9 +2956,15 @@ document.addEventListener("DOMContentLoaded", () => {
       const description = document.getElementById("rec-desc").value;
       const value = parseFloat(document.getElementById("rec-val").value);
       const date = document.getElementById("rec-date").value;
+      const endDate = document.getElementById("rec-end-date").value;
       const cardId = document.getElementById("rec-card").value;
       const frequency = document.getElementById("rec-frequency").value;
       const category = document.getElementById("rec-category").value;
+
+      if (endDate && endDate < date) {
+        alert("A data de término precisa ser igual ou posterior ao primeiro vencimento.");
+        return;
+      }
 
       if (id) {
         const rec = state.recurring.find(r => r.id === id);
@@ -2898,6 +2972,7 @@ document.addEventListener("DOMContentLoaded", () => {
           rec.description = description;
           rec.value = value;
           rec.date = date;
+          rec.endDate = endDate;
           rec.cardId = cardId;
           rec.frequency = frequency;
           rec.category = category;
@@ -2908,6 +2983,7 @@ document.addEventListener("DOMContentLoaded", () => {
           description,
           value,
           date,
+          endDate,
           cardId,
           frequency,
           category
