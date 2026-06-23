@@ -636,6 +636,167 @@ body {
   color: var(--text-muted);
 }
 
+/* Centro de inteligência financeira */
+.financial-insights-grid {
+  display: grid;
+  grid-template-columns: minmax(320px, 1.25fr) minmax(280px, 1fr) minmax(280px, 1fr);
+  gap: 1rem;
+}
+
+.financial-health-panel,
+.upcoming-panel,
+.advisor-panel {
+  padding: 1.25rem;
+}
+
+.section-title-container.compact {
+  margin-bottom: 1rem;
+}
+
+.health-score-badge {
+  min-width: 34px;
+  height: 28px;
+  padding: 0 0.6rem;
+  border-radius: 50px;
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--color-success);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.health-score-layout {
+  display: grid;
+  grid-template-columns: 112px 1fr;
+  align-items: center;
+  gap: 1rem;
+}
+
+.health-ring {
+  width: 112px;
+  height: 112px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at center, var(--bg-secondary) 58%, transparent 60%),
+    conic-gradient(var(--color-success) calc(var(--score) * 1%), rgba(148, 163, 184, 0.18) 0);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-sm);
+}
+
+.health-ring span {
+  font-size: 1.8rem;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--text-main);
+}
+
+.health-ring small {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.health-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.health-summary strong {
+  font-size: 1rem;
+  color: var(--text-main);
+}
+
+.health-summary p {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.health-stats-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.health-stats-row div {
+  padding: 0.7rem;
+  border-radius: var(--radius-md);
+  background: rgba(148, 163, 184, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.health-stats-row span,
+.upcoming-item span,
+.advisor-item span {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.health-stats-row strong {
+  color: var(--text-main);
+  font-size: 0.9rem;
+}
+
+.upcoming-list,
+.advisor-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.upcoming-item,
+.advisor-item {
+  padding: 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: rgba(148, 163, 184, 0.06);
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.upcoming-date-pill {
+  min-width: 48px;
+  padding: 0.35rem 0.5rem;
+  border-radius: var(--radius-sm);
+  background: rgba(245, 158, 11, 0.12);
+  color: var(--color-warning);
+  text-align: center;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.upcoming-item strong,
+.advisor-item strong {
+  display: block;
+  color: var(--text-main);
+  font-size: 0.85rem;
+  line-height: 1.25;
+}
+
+.advisor-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  margin-top: 0.35rem;
+  background: var(--color-limit);
+  flex: 0 0 auto;
+}
+
+.advisor-dot.warning { background: var(--color-warning); }
+.advisor-dot.success { background: var(--color-success); }
+.advisor-dot.danger { background: var(--color-expense); }
+
 /* ==========================================================================
    6. GRID INTERMEDIÁRIA (CARTÃO 3D & GRÁFICO SVG)
    ========================================================================== */
@@ -1401,6 +1562,10 @@ body {
     grid-template-columns: 1fr;
   }
 
+  .financial-insights-grid {
+    grid-template-columns: 1fr;
+  }
+
   .actions-container {
     grid-template-columns: 1fr 1fr;
   }
@@ -1443,6 +1608,15 @@ body {
 
   .actions-container {
     grid-template-columns: 1fr;
+  }
+
+  .health-score-layout,
+  .health-stats-row {
+    grid-template-columns: 1fr;
+  }
+
+  .health-ring {
+    margin: 0 auto;
   }
 
   .main-nav ul {

@@ -59,6 +59,9 @@ document.addEventListener("DOMContentLoaded", () => {
       "act-icon-inc": ICONS.plus,
       "title-icon-card": ICONS.card,
       "title-icon-report": ICONS.report,
+      "title-icon-health": ICONS.report,
+      "title-icon-upcoming": ICONS.calendar,
+      "title-icon-advisor": ICONS.goal,
       "tab-icon-exp": ICONS.expense,
       "tab-icon-os": ICONS.recurring,
       "tab-icon-saldo": ICONS.income,
@@ -703,6 +706,135 @@ document.addEventListener("DOMContentLoaded", () => {
     if (repNet) {
       repNet.innerText = (netFlow >= 0 ? "+ " : "- ") + formatCurrency(Math.abs(netFlow));
       repNet.className = netFlow >= 0 ? "text-success" : "text-danger";
+    }
+  }
+
+  function renderFinancialInsights() {
+    const monthExpenses = getMonthlyExpenses(state.selectedMonth, state.selectedYear);
+    const monthRevenues = state.revenues.filter(r => {
+      const d = new Date(r.date + "T00:00:00");
+      return d.getMonth() === state.selectedMonth && d.getFullYear() === state.selectedYear;
+    });
+
+    const totalRevenues = monthRevenues.reduce((sum, r) => sum + r.value, 0);
+    const totalExpenses = monthExpenses.reduce((sum, e) => sum + e.value, 0);
+    const pendingExpenses = monthExpenses
+      .filter(e => e.status === "Pendentes" || e.status === "Comprometido")
+      .reduce((sum, e) => sum + e.value, 0);
+    const pendingRevenues = monthRevenues
+      .filter(r => r.category === "Pendente")
+      .reduce((sum, r) => sum + r.value, 0);
+    const paidExpenses = monthExpenses
+      .filter(e => e.status === "Pagas")
+      .reduce((sum, e) => sum + e.value, 0);
+
+    const netFlow = totalRevenues - totalExpenses;
+    const commitmentRatio = totalRevenues > 0 ? Math.min((totalExpenses / totalRevenues) * 100, 999) : 0;
+    const totalGoals = state.goals.reduce((sum, g) => sum + g.target, 0);
+    const savedGoals = state.goals.reduce((sum, g) => sum + g.saved, 0);
+    const goalsRatio = totalGoals > 0 ? Math.min((savedGoals / totalGoals) * 100, 100) : 0;
+
+    let score = 55;
+    if (totalRevenues > 0) {
+      score += netFlow >= 0 ? 18 : -18;
+      score += commitmentRatio <= 60 ? 14 : commitmentRatio <= 85 ? 4 : -12;
+    }
+    score += goalsRatio >= 50 ? 10 : goalsRatio > 0 ? 4 : 0;
+    score += pendingExpenses <= pendingRevenues && pendingExpenses > 0 ? 4 : 0;
+    score = Math.max(0, Math.min(100, Math.round(score)));
+
+    const scoreBadge = document.getElementById("health-score-badge");
+    const scoreValue = document.getElementById("health-score-value");
+    const ring = document.getElementById("health-ring");
+    const title = document.getElementById("health-status-title");
+    const copy = document.getElementById("health-status-copy");
+    const netFlowEl = document.getElementById("insight-net-flow");
+    const commitmentEl = document.getElementById("insight-commitment");
+    const goalsEl = document.getElementById("insight-goals");
+
+    if (scoreBadge) scoreBadge.innerText = `${score} pts`;
+    if (scoreValue) scoreValue.innerText = score.toString();
+    if (ring) ring.style.setProperty("--score", score);
+    if (netFlowEl) {
+      netFlowEl.innerText = (netFlow >= 0 ? "+ " : "- ") + formatCurrency(Math.abs(netFlow));
+      netFlowEl.className = netFlow >= 0 ? "text-success" : "text-danger";
+    }
+    if (commitmentEl) commitmentEl.innerText = totalRevenues > 0 ? `${Math.round(commitmentRatio)}%` : "Sem receita";
+    if (goalsEl) goalsEl.innerText = totalGoals > 0 ? `${Math.round(goalsRatio)}%` : "Sem metas";
+
+    if (title && copy) {
+      if (score >= 80) {
+        title.innerText = "Mês em ótima rota";
+        copy.innerText = "Seu fluxo está positivo e os compromissos cabem bem na receita prevista.";
+      } else if (score >= 60) {
+        title.innerText = "Controle saudável";
+        copy.innerText = "O mês está administrável, mas vale observar pendências e gastos comprometidos.";
+      } else {
+        title.innerText = "Atenção ao caixa";
+        copy.innerText = "Os gastos estão pressionando o saldo previsto. Priorize pagamentos e entradas pendentes.";
+      }
+    }
+
+    const upcoming = monthExpenses
+      .filter(e => e.status !== "Pagas")
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .slice(0, 4);
+    const upcomingCount = document.getElementById("upcoming-count");
+    const upcomingList = document.getElementById("upcoming-list");
+    if (upcomingCount) upcomingCount.innerText = upcoming.length.toString();
+    if (upcomingList) {
+      if (upcoming.length === 0) {
+        upcomingList.innerHTML = `
+          <div class="upcoming-item">
+            <div class="upcoming-date-pill">OK</div>
+            <div>
+              <strong>Nenhum vencimento pendente neste mês</strong>
+              <span>As despesas do período estão liquidadas ou ainda não foram registradas.</span>
+            </div>
+          </div>
+        `;
+      } else {
+        upcomingList.innerHTML = upcoming.map(item => {
+          const day = item.date.split("-")[2] || "--";
+          return `
+            <div class="upcoming-item">
+              <div class="upcoming-date-pill">Dia ${day}</div>
+              <div>
+                <strong>${item.description}</strong>
+                <span>${formatCurrency(item.value)} · ${item.status === "Comprometido" ? "Fatura" : "Pendente"}</span>
+              </div>
+            </div>
+          `;
+        }).join("");
+      }
+    }
+
+    const recommendations = [];
+    if (netFlow < 0) {
+      recommendations.push({ tone: "danger", title: "Reduza ou reprograme gastos", detail: `Faltam ${formatCurrency(Math.abs(netFlow))} para fechar o mês no azul.` });
+    } else {
+      recommendations.push({ tone: "success", title: "Direcione o saldo positivo", detail: `Há ${formatCurrency(netFlow)} previstos para reserva, metas ou quitação antecipada.` });
+    }
+    if (pendingRevenues > 0) {
+      recommendations.push({ tone: "warning", title: "Acompanhe valores a receber", detail: `${formatCurrency(pendingRevenues)} ainda dependem de confirmação.` });
+    }
+    if (paidExpenses > totalExpenses * 0.75 && totalExpenses > 0) {
+      recommendations.push({ tone: "success", title: "Boa liquidação de despesas", detail: "A maior parte das despesas do mês já está marcada como paga." });
+    } else if (pendingExpenses > 0) {
+      recommendations.push({ tone: "warning", title: "Priorize pendências próximas", detail: `${formatCurrency(pendingExpenses)} seguem pendentes ou comprometidos.` });
+    }
+
+    const advisorList = document.getElementById("advisor-list");
+    if (advisorList) {
+      advisorList.innerHTML = recommendations.slice(0, 3).map(item => `
+        <div class="advisor-item">
+          <span class="advisor-dot ${item.tone}"></span>
+          <div>
+            <strong>${item.title}</strong>
+            <span>${item.detail}</span>
+          </div>
+        </div>
+      `).join("");
     }
   }
 
@@ -2156,6 +2288,7 @@ document.addEventListener("DOMContentLoaded", () => {
     renderGoals();
     renderCategoryReport();
     updateReportSummary();
+    renderFinancialInsights();
   }
 
   // Preencher seletores de cartões nos formulários

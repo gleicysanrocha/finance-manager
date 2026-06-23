@@ -191,6 +191,68 @@
           </button>
         </section>
 
+        <!-- Centro de Inteligência Financeira -->
+        <section class="financial-insights-grid" style="margin-top: 1.5rem;">
+          <div class="financial-health-panel glass-effect">
+            <div class="section-title-container compact">
+              <div class="icon-title-wrapper">
+                <span id="title-icon-health"></span>
+                <h3>Saúde Financeira</h3>
+              </div>
+              <span class="health-score-badge" id="health-score-badge">0</span>
+            </div>
+            <div class="health-score-layout">
+              <div class="health-ring" id="health-ring" style="--score: 0;">
+                <span id="health-score-value">0</span>
+                <small>/100</small>
+              </div>
+              <div class="health-summary">
+                <strong id="health-status-title">Analisando dados</strong>
+                <p id="health-status-copy">Acompanhe receitas, gastos e compromissos para manter o mês sob controle.</p>
+              </div>
+            </div>
+            <div class="health-stats-row">
+              <div>
+                <span>Saldo previsto</span>
+                <strong id="insight-net-flow">R$ 0,00</strong>
+              </div>
+              <div>
+                <span>Comprometimento</span>
+                <strong id="insight-commitment">0%</strong>
+              </div>
+              <div>
+                <span>Reserva</span>
+                <strong id="insight-goals">0%</strong>
+              </div>
+            </div>
+          </div>
+
+          <div class="upcoming-panel glass-effect">
+            <div class="section-title-container compact">
+              <div class="icon-title-wrapper">
+                <span id="title-icon-upcoming"></span>
+                <h3>Próximos Vencimentos</h3>
+              </div>
+              <span class="cards-count-badge" id="upcoming-count">0</span>
+            </div>
+            <div class="upcoming-list" id="upcoming-list">
+              <!-- Alertas injetados por JS -->
+            </div>
+          </div>
+
+          <div class="advisor-panel glass-effect">
+            <div class="section-title-container compact">
+              <div class="icon-title-wrapper">
+                <span id="title-icon-advisor"></span>
+                <h3>Recomendações</h3>
+              </div>
+            </div>
+            <div class="advisor-list" id="advisor-list">
+              <!-- Recomendações injetadas por JS -->
+            </div>
+          </div>
+        </section>
+
         <!-- Seção Intermediária: Cartões e Gráfico de Fluxo de Caixa -->
         <section class="mid-dashboard-grid" style="margin-top: 1.5rem;">
           <!-- Bloco Esquerdo: Meus Cartões -->
