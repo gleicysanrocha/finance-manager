@@ -55,11 +55,22 @@
         <button class="control-btn theme-toggle" id="theme-toggle-btn" aria-label="Alternar Tema">
           <!-- Ícone Sun/Moon injetado por JS -->
         </button>
-        <div class="user-profile-badge" id="profile-menu-btn">
+        <div class="user-profile-badge" id="profile-menu-btn" style="position: relative;">
           <div class="user-avatar" id="user-avatar-svg">
             <!-- Ícone User injetado por JS -->
           </div>
           <span class="user-name">Usuário</span>
+
+          <!-- Menu Dropdown -->
+          <div class="profile-dropdown" id="profile-dropdown">
+            <div class="dropdown-header">Gerenciar Perfil</div>
+            <button type="button" class="dropdown-item reset-btn" id="dropdown-reset-btn">
+              <span>🗑️</span> Resetar Informações
+            </button>
+            <button type="button" class="dropdown-item logout-btn" id="dropdown-logout-btn">
+              <span>🚪</span> Sair da Conta
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -225,11 +225,15 @@ document.addEventListener("DOMContentLoaded", () => {
       console.log("Firebase inicializado com sucesso!");
       
       auth.onAuthStateChanged(async (user) => {
+        const dropdownLogoutBtn = document.getElementById("dropdown-logout-btn");
         if (user) {
           const isNewUser = !currentUser || currentUser.uid !== user.uid;
           currentUser = user;
           updateSyncIndicator("online");
           updateCloudUI(true, currentUser.email);
+          if (dropdownLogoutBtn) {
+            dropdownLogoutBtn.innerHTML = `<span>🚪</span> Sair da Conta`;
+          }
           if (isNewUser && !isCompletingSignup) {
             await loadState();
           }
@@ -240,6 +244,9 @@ document.addEventListener("DOMContentLoaded", () => {
           currentUser = null;
           updateSyncIndicator("offline");
           updateCloudUI(false, "");
+          if (dropdownLogoutBtn) {
+            dropdownLogoutBtn.innerHTML = `<span>🔑</span> Entrar / Conectar`;
+          }
           await loadState();
           showAuthOverlay();
         }
@@ -3238,6 +3245,65 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         clearCurrentLocalData();
         location.reload();
+      }
+    });
+  }
+
+  // 4. Dropdown de Perfil (Resetar e Sair/Conectar)
+  const profileMenuBtn = document.getElementById("profile-menu-btn");
+  const profileDropdown = document.getElementById("profile-dropdown");
+  const dropdownResetBtn = document.getElementById("dropdown-reset-btn");
+  const dropdownLogoutBtn = document.getElementById("dropdown-logout-btn");
+
+  if (profileMenuBtn && profileDropdown) {
+    profileDropdown.addEventListener("click", (e) => {
+      e.stopPropagation();
+    });
+
+    profileMenuBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      profileDropdown.classList.toggle("active");
+    });
+
+    document.addEventListener("click", () => {
+      profileDropdown.classList.remove("active");
+    });
+  }
+
+  if (dropdownResetBtn) {
+    dropdownResetBtn.addEventListener("click", async (e) => {
+      e.preventDefault();
+      if (confirm("Tem certeza que deseja restaurar a ferramenta? Todos os seus dados cadastrados (offline e online) serão apagados permanentemente!")) {
+        if (isCloudEnabled && currentUser) {
+          try {
+            const docRef = db.collection("financial_data").doc(currentUser.uid);
+            await docRef.delete();
+          } catch (err) {
+            console.error("Erro ao limpar dados na nuvem:", err);
+          }
+        }
+        clearCurrentLocalData();
+        location.reload();
+      }
+    });
+  }
+
+  if (dropdownLogoutBtn) {
+    dropdownLogoutBtn.addEventListener("click", async (e) => {
+      e.preventDefault();
+      if (currentUser) {
+        if (confirm("Deseja realmente desconectar e voltar ao Modo Local (Offline)?")) {
+          if (auth) {
+            await auth.signOut();
+            updateCloudUI(false, "");
+            updateSyncIndicator("offline");
+            alert("Desconectado com sucesso!");
+            location.reload();
+          }
+        }
+      } else {
+        showAuthOverlay();
+        profileDropdown.classList.remove("active");
       }
     });
   }

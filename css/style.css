@@ -241,9 +241,11 @@ body.theme-dark {
 }
 
 .logo-text h1 {
-  font-size: 1.25rem;
-  font-weight: 700;
-  letter-spacing: 0;
+  font-size: 1.2rem;
+  font-weight: 800;
+  line-height: 1.05;
+  display: flex;
+  flex-direction: column;
 }
 
 .brand-highlight {
@@ -260,9 +262,8 @@ body.theme-dark {
   border: 1px solid rgba(16, 185, 129, 0.2);
   border-radius: 50px;
   max-width: 320px;
-  white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
+  flex-shrink: 1;
   animation: pulse-border 3s infinite;
 }
 
@@ -272,12 +273,17 @@ body.theme-dark {
   background-color: var(--color-success);
   border-radius: 50%;
   box-shadow: 0 0 8px var(--color-success);
+  flex-shrink: 0;
 }
 
 .badge-text {
   font-size: 0.78rem;
   font-weight: 600;
   color: var(--color-success);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 @keyframes pulse-border {
@@ -377,6 +383,82 @@ body.theme-dark {
 .user-name {
   font-size: 0.85rem;
   font-weight: 600;
+}
+
+/* Dropdown de Perfil */
+.profile-dropdown {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 200px;
+  padding: 0.5rem;
+  background: var(--bg-glass);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  z-index: 1000;
+  flex-direction: column;
+  gap: 0.25rem;
+  animation: slideDownDropdown 0.2s ease-out;
+}
+
+@keyframes slideDownDropdown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.profile-dropdown.active {
+  display: flex !important;
+}
+
+.dropdown-header {
+  padding: 0.5rem 0.5rem 0.35rem 0.5rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-glass);
+  margin-bottom: 0.35rem;
+  font-weight: 700;
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  background: none;
+  border: none;
+  color: var(--text-main);
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: left;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.dropdown-item:hover {
+  background-color: rgba(148, 163, 184, 0.12);
+}
+
+.dropdown-item.reset-btn {
+  color: var(--color-expense);
+}
+
+.dropdown-item.reset-btn:hover {
+  background-color: rgba(239, 68, 68, 0.08);
 }
 
 /* ==========================================================================
