@@ -3310,6 +3310,24 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // 1b. Alternar Plano Premium (Admin)
+  const btnAdminToggleTier = document.getElementById("btn-admin-toggle-tier");
+  if (btnAdminToggleTier) {
+    btnAdminToggleTier.addEventListener("click", async () => {
+      const nextTier = state.tier === "premium" ? "free" : "premium";
+      const confirmMsg = nextTier === "premium"
+        ? "Deseja ativar o Plano Premium para esta conta?"
+        : "Deseja reverter esta conta para o Plano Gratuito?";
+        
+      if (confirm(confirmMsg)) {
+        state.tier = nextTier;
+        await saveState();
+        updateTierUI();
+        alert(`Plano atualizado com sucesso para ${nextTier === "premium" ? "Premium" : "Gratuito"}!`);
+      }
+    });
+  }
+
   // 2. Exportar dados em JSON
   const btnExportData = document.getElementById("btn-export-data");
   if (btnExportData) {
@@ -3460,6 +3478,31 @@ document.addEventListener("DOMContentLoaded", () => {
         crown.title = "Usuário Premium";
         userNameSpan.appendChild(crown);
       }
+    }
+
+    updateAdminSubscriptionCard();
+  }
+
+  function updateAdminSubscriptionCard() {
+    const adminTierStatus = document.getElementById("admin-tier-status");
+    const adminUserUid = document.getElementById("admin-user-uid");
+    const btnAdminToggleTier = document.getElementById("btn-admin-toggle-tier");
+
+    if (adminTierStatus) {
+      adminTierStatus.innerHTML = state.tier === "premium" 
+        ? '<span style="color: var(--color-success); font-weight: 800;">👑 PREMIUM (Ativo)</span>' 
+        : '<span style="color: var(--text-muted);">🔒 GRATUITO</span>';
+    }
+    if (adminUserUid) {
+      adminUserUid.textContent = currentUser ? currentUser.uid : "offline (Modo Visitante)";
+    }
+    if (btnAdminToggleTier) {
+      btnAdminToggleTier.innerHTML = state.tier === "premium" 
+        ? "🔒 Reverter para Plano Gratuito" 
+        : "👑 Ativar Plano Premium (Admin)";
+      btnAdminToggleTier.style.background = state.tier === "premium"
+        ? "linear-gradient(135deg, #475569 0%, #64748b 100%)"
+        : "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)";
     }
   }
 
