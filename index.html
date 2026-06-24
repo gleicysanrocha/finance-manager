@@ -1136,35 +1136,46 @@
     </div>
   </dialog>
 
-  <!-- TELA DE LOGIN / AUTENTICAÇÃO (SUPABASE) -->
+  <!-- TELA DE LOGIN / AUTENTICAÇÃO (FIREBASE) -->
   <div id="auth-overlay" class="auth-overlay" style="display: none;">
-    <div class="auth-card glass-effect">
+    <div class="auth-card">
       <div class="auth-header">
-        <div class="auth-logo-icon">☁️</div>
-        <h2>Acesse sua Conta</h2>
-        <p>Conecte-se para sincronizar seus dados financeiros na nuvem com segurança.</p>
+        <div class="auth-logo-icon" id="auth-logo-svg"></div>
+        <h2 id="auth-title">Acesse sua conta</h2>
+        <p id="auth-description">Entre para acessar seus dados financeiros com segurança.</p>
+      </div>
+      <div class="auth-mode-switch" role="tablist" aria-label="Escolha entrar ou criar uma conta">
+        <button type="button" id="auth-mode-signin" class="active" role="tab" aria-selected="true">Entrar</button>
+        <button type="button" id="auth-mode-signup" role="tab" aria-selected="false">Criar conta</button>
       </div>
       <form id="auth-form">
+        <div class="form-group auth-signup-field" hidden>
+          <label for="auth-name">Seu nome</label>
+          <input type="text" id="auth-name" placeholder="Como devemos chamar você?" autocomplete="name" maxlength="60">
+        </div>
         <div class="form-group">
           <label for="auth-email">E-mail</label>
-          <input type="email" id="auth-email" placeholder="seu@email.com" required>
+          <input type="email" id="auth-email" placeholder="seu@email.com" autocomplete="email" required>
         </div>
         <div class="form-group">
-          <label for="auth-password">Senha (mínimo 6 caracteres)</label>
-          <input type="password" id="auth-password" placeholder="••••••••" required>
+          <label for="auth-password">Senha</label>
+          <input type="password" id="auth-password" placeholder="Mínimo de 6 caracteres" autocomplete="current-password" minlength="6" required>
         </div>
-        <div class="auth-actions" style="display: flex; gap: 0.75rem; margin-top: 0.5rem;">
-          <button type="submit" id="btn-auth-signin" class="btn-submit btn-expense-submit" style="flex: 1;">Entrar</button>
-          <button type="button" id="btn-auth-signup" class="btn-cancel" style="flex: 1; border: 1px solid var(--border-color); font-weight: 700;">Criar Conta</button>
+        <div class="form-group auth-signup-field" hidden>
+          <label for="auth-password-confirm">Confirme a senha</label>
+          <input type="password" id="auth-password-confirm" placeholder="Digite a senha novamente" autocomplete="new-password" minlength="6">
         </div>
+        <p id="auth-feedback" class="auth-feedback" role="alert" aria-live="polite"></p>
+        <button type="submit" id="btn-auth-submit" class="btn-submit btn-expense-submit auth-primary">Entrar</button>
+        <button type="button" id="btn-auth-forgot" class="auth-link">Esqueci minha senha</button>
       </form>
-      <div class="auth-divider" style="text-align: center; margin: 1rem 0; color: var(--text-muted); font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; position: relative;">
-        <span style="background: var(--bg-secondary); padding: 0 0.5rem; position: relative; z-index: 2;">ou</span>
-        <div style="position: absolute; top: 50%; left: 0; right: 0; border-top: 1px solid var(--border-color); z-index: 1;"></div>
+      <div class="auth-divider">
+        <span>ou</span>
       </div>
-      <button type="button" id="btn-auth-offline" class="btn-offline" style="width: 100%; padding: 0.75rem; border-radius: var(--radius-md); border: 1px dashed var(--border-color); background: none; color: var(--text-main); font-family: var(--font-sans); font-weight: 700; font-size: 0.85rem; cursor: pointer; transition: var(--transition-fast);">
-        Continuar no Modo Local (Offline)
+      <button type="button" id="btn-auth-offline" class="btn-offline">
+        Continuar somente neste dispositivo
       </button>
+      <p class="auth-privacy">Cada conta possui uma área privada e independente no Firebase.</p>
     </div>
   </div>
 

@@ -45,6 +45,7 @@ document.addEventListener("DOMContentLoaded", () => {
       "nav-icon-report": ICONS.report,
       "nav-icon-admin": ICONS.admin,
       "user-avatar-svg": ICONS.user,
+      "auth-logo-svg": ICONS.walletFilled,
       "calendar-icon-svg": ICONS.calendar,
       "icon-despesa-svg": ICONS.expense,
       "icon-pagas-svg": ICONS.paid,
@@ -142,6 +143,10 @@ document.addEventListener("DOMContentLoaded", () => {
   let currentUser = null;
   let db = null;
   let auth = null;
+  let authMode = "signin";
+  let isCompletingSignup = false;
+
+  const DEFAULT_TAGLINE = "Não se trata de quanto você ganha, mas de como você gerencia.";
 
   // Ícones SVG para status da nuvem (Cloud Sync Icons)
   const CLOUD_ICONS = {
@@ -208,6 +213,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!config) {
       console.log("Firebase não configurado. Continuando no modo local (offline).");
       updateSyncIndicator("offline");
+      showAuthOverlay();
       return false;
     }
     
@@ -224,14 +230,17 @@ document.addEventListener("DOMContentLoaded", () => {
           currentUser = user;
           updateSyncIndicator("online");
           updateCloudUI(true, currentUser.email);
-          hideAuthOverlay();
-          if (isNewUser) {
+          if (isNewUser && !isCompletingSignup) {
             await loadState();
+          }
+          if (!isCompletingSignup) {
+            hideAuthOverlay();
           }
         } else {
           currentUser = null;
           updateSyncIndicator("offline");
           updateCloudUI(false, "");
+          await loadState();
           showAuthOverlay();
         }
       });
@@ -240,6 +249,7 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (err) {
       console.error("Erro ao inicializar Firebase:", err);
       updateSyncIndicator("error");
+      showAuthOverlay();
       return false;
     }
   }
@@ -263,10 +273,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const authOverlay = document.getElementById("auth-overlay");
   const authForm = document.getElementById("auth-form");
+  const authNameInput = document.getElementById("auth-name");
   const authEmailInput = document.getElementById("auth-email");
   const authPasswordInput = document.getElementById("auth-password");
-  const btnAuthSignin = document.getElementById("btn-auth-signin");
-  const btnAuthSignup = document.getElementById("btn-auth-signup");
+  const authPasswordConfirmInput = document.getElementById("auth-password-confirm");
+  const authFeedback = document.getElementById("auth-feedback");
+  const authTitle = document.getElementById("auth-title");
+  const authDescription = document.getElementById("auth-description");
+  const btnAuthSubmit = document.getElementById("btn-auth-submit");
+  const btnAuthForgot = document.getElementById("btn-auth-forgot");
+  const btnAuthModeSignin = document.getElementById("auth-mode-signin");
+  const btnAuthModeSignup = document.getElementById("auth-mode-signup");
   const btnAuthOffline = document.getElementById("btn-auth-offline");
   
   const btnAdminConnect = document.getElementById("btn-admin-connect");
@@ -283,6 +300,66 @@ document.addEventListener("DOMContentLoaded", () => {
       authOverlay.style.display = "none";
     }
   }
+
+  function setAuthFeedback(message, type = "error") {
+    if (!authFeedback) return;
+    authFeedback.textContent = message;
+    authFeedback.className = `auth-feedback ${message ? type : ""}`;
+  }
+
+  function setAuthMode(mode) {
+    authMode = mode;
+    const isSignup = mode === "signup";
+    document.querySelectorAll(".auth-signup-field").forEach((field) => {
+      field.hidden = !isSignup;
+    });
+    btnAuthModeSignin?.classList.toggle("active", !isSignup);
+    btnAuthModeSignup?.classList.toggle("active", isSignup);
+    btnAuthModeSignin?.setAttribute("aria-selected", String(!isSignup));
+    btnAuthModeSignup?.setAttribute("aria-selected", String(isSignup));
+    if (authTitle) authTitle.textContent = isSignup ? "Crie sua conta" : "Acesse sua conta";
+    if (authDescription) {
+      authDescription.textContent = isSignup
+        ? "Comece seu controle financeiro e mantenha seus dados sincronizados."
+        : "Entre para acessar seus dados financeiros com segurança.";
+    }
+    if (btnAuthSubmit) btnAuthSubmit.textContent = isSignup ? "Criar minha conta" : "Entrar";
+    if (btnAuthForgot) btnAuthForgot.hidden = isSignup;
+    if (authPasswordInput) authPasswordInput.autocomplete = isSignup ? "new-password" : "current-password";
+    setAuthFeedback("");
+  }
+
+  function getAuthErrorMessage(error) {
+    const messages = {
+      "auth/email-already-in-use": "Este e-mail já possui uma conta.",
+      "auth/invalid-email": "Digite um e-mail válido.",
+      "auth/invalid-credential": "E-mail ou senha incorretos.",
+      "auth/user-not-found": "E-mail ou senha incorretos.",
+      "auth/wrong-password": "E-mail ou senha incorretos.",
+      "auth/weak-password": "Use uma senha com pelo menos 6 caracteres.",
+      "auth/operation-not-allowed": "O cadastro por e-mail precisa ser habilitado no Firebase.",
+      "auth/too-many-requests": "Muitas tentativas. Aguarde alguns minutos e tente novamente.",
+      "auth/network-request-failed": "Não foi possível conectar. Verifique sua internet."
+    };
+    return messages[error?.code] || "Não foi possível concluir. Tente novamente.";
+  }
+
+  function resetStateForNewUser(name) {
+    state.cards = [];
+    state.expenses = [];
+    state.revenues = [];
+    state.orders = [];
+    state.accounts = [];
+    state.recurring = [];
+    state.goals = [];
+    state.userName = name;
+    state.tagline = DEFAULT_TAGLINE;
+    state.selectedCardId = "";
+    updateProfileUI();
+  }
+
+  btnAuthModeSignin?.addEventListener("click", () => setAuthMode("signin"));
+  btnAuthModeSignup?.addEventListener("click", () => setAuthMode("signup"));
 
   if (btnAuthOffline) {
     btnAuthOffline.addEventListener("click", () => {
@@ -312,79 +389,79 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  if (btnAuthSignin) {
-    btnAuthSignin.addEventListener("click", async (e) => {
+  if (authForm) {
+    authForm.addEventListener("submit", async (e) => {
       e.preventDefault();
       const email = authEmailInput.value.trim();
       const password = authPasswordInput.value;
+      const name = authNameInput?.value.trim() || "";
       if (!email || !password) {
-        alert("Por favor, preencha o e-mail e a senha.");
+        setAuthFeedback("Preencha o e-mail e a senha.");
         return;
       }
 
       if (!auth) {
-        alert("Erro: Serviço de autenticação não inicializado.");
+        setAuthFeedback("O serviço de acesso ainda não está disponível.");
         return;
       }
 
-      btnAuthSignin.disabled = true;
-      btnAuthSignin.innerText = "Conectando...";
+      if (authMode === "signup") {
+        if (!name) {
+          setAuthFeedback("Digite seu nome.");
+          return;
+        }
+        if (password.length < 6) {
+          setAuthFeedback("A senha precisa ter pelo menos 6 caracteres.");
+          return;
+        }
+        if (password !== authPasswordConfirmInput?.value) {
+          setAuthFeedback("As senhas não coincidem.");
+          return;
+        }
+      }
 
+      btnAuthSubmit.disabled = true;
+      btnAuthSubmit.textContent = authMode === "signup" ? "Criando conta..." : "Entrando...";
+      setAuthFeedback("");
       try {
-        const userCredential = await auth.signInWithEmailAndPassword(email, password);
-        hideAuthOverlay();
-        currentUser = userCredential.user;
+        if (authMode === "signup") {
+          isCompletingSignup = true;
+          const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+          currentUser = userCredential.user;
+          await currentUser.updateProfile({ displayName: name });
+          resetStateForNewUser(name);
+          await saveState();
+        } else {
+          const userCredential = await auth.signInWithEmailAndPassword(email, password);
+          currentUser = userCredential.user;
+        }
         updateSyncIndicator("online");
         updateCloudUI(true, currentUser.email);
-        alert("Conectado com sucesso!");
-        await loadState();
+        hideAuthOverlay();
       } catch (err) {
-        alert("Erro ao entrar: " + (err.message || err));
+        setAuthFeedback(getAuthErrorMessage(err));
       } finally {
-        btnAuthSignin.disabled = false;
-        btnAuthSignin.innerText = "Entrar";
+        isCompletingSignup = false;
+        btnAuthSubmit.disabled = false;
+        btnAuthSubmit.textContent = authMode === "signup" ? "Criar minha conta" : "Entrar";
       }
     });
   }
 
-  if (btnAuthSignup) {
-    btnAuthSignup.addEventListener("click", async (e) => {
-      e.preventDefault();
-      const email = authEmailInput.value.trim();
-      const password = authPasswordInput.value;
-      if (!email || !password) {
-        alert("Preencha o e-mail e a senha para criar sua conta.");
-        return;
-      }
-      if (password.length < 6) {
-        alert("A senha precisa ter no mínimo 6 caracteres.");
-        return;
-      }
-
-      if (!auth) {
-        alert("Erro: Serviço de autenticação não inicializado.");
-        return;
-      }
-
-      btnAuthSignup.disabled = true;
-      btnAuthSignup.innerText = "Criando...";
-
-      try {
-        const userCredential = await auth.createUserWithEmailAndPassword(email, password);
-        hideAuthOverlay();
-        currentUser = userCredential.user;
-        updateSyncIndicator("online");
-        updateCloudUI(true, currentUser.email);
-        alert("Conta criada e conectada com sucesso!");
-        await loadState();
-      } catch (err) {
-        alert("Erro ao criar conta: " + (err.message || err));
-      } finally {
-        btnAuthSignup.disabled = false;
-        btnAuthSignup.innerText = "Criar Conta";
-      }
-    });
-  }
+  btnAuthForgot?.addEventListener("click", async () => {
+    const email = authEmailInput?.value.trim();
+    if (!email) {
+      setAuthFeedback("Digite seu e-mail para receber o link de recuperação.");
+      authEmailInput?.focus();
+      return;
+    }
+    try {
+      await auth.sendPasswordResetEmail(email);
+      setAuthFeedback("Enviamos um link de recuperação para seu e-mail.", "success");
+    } catch (err) {
+      setAuthFeedback(getAuthErrorMessage(err));
+    }
+  });
 
   const syncStatusBtn = document.getElementById("sync-status-btn");
   if (syncStatusBtn) {
@@ -403,40 +480,65 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  function getLocalStorageKey(suffix) {
+    const owner = currentUser?.uid || "offline";
+    return `gley-finance-${owner}-${suffix}`;
+  }
+
+  function getLocalValue(suffix) {
+    const scopedValue = localStorage.getItem(getLocalStorageKey(suffix));
+    if (scopedValue !== null) return scopedValue;
+    return currentUser ? null : localStorage.getItem(`gley-finance-${suffix}`);
+  }
+
+  function clearCurrentLocalData() {
+    [
+      "cards",
+      "expenses",
+      "revenues",
+      "orders",
+      "accounts",
+      "recurring",
+      "goals",
+      "username",
+      "tagline",
+      "theme"
+    ].forEach((suffix) => localStorage.removeItem(getLocalStorageKey(suffix)));
+  }
+
   async function loadState() {
-    const storedTheme = localStorage.getItem("gley-finance-theme");
+    const storedTheme = getLocalValue("theme");
     if (storedTheme) {
       state.theme = storedTheme;
       document.body.className = `theme-${storedTheme}`;
     }
 
-    const storedCards = localStorage.getItem("gley-finance-cards");
-    const storedExpenses = localStorage.getItem("gley-finance-expenses");
-    const storedRevenues = localStorage.getItem("gley-finance-revenues");
-    const storedOrders = localStorage.getItem("gley-finance-orders");
-    const storedAccounts = localStorage.getItem("gley-finance-accounts");
-    const storedRecurring = localStorage.getItem("gley-finance-recurring");
-    const storedGoals = localStorage.getItem("gley-finance-goals");
-    const storedUserName = localStorage.getItem("gley-finance-username");
-    const storedTagline = localStorage.getItem("gley-finance-tagline");
-
+    const storedCards = getLocalValue("cards");
+    const storedExpenses = getLocalValue("expenses");
+    const storedRevenues = getLocalValue("revenues");
+    const storedOrders = getLocalValue("orders");
+    const storedAccounts = getLocalValue("accounts");
+    const storedRecurring = getLocalValue("recurring");
+    const storedGoals = getLocalValue("goals");
+    const storedUserName = getLocalValue("username");
+    const storedTagline = getLocalValue("tagline");
     if (storedCards && storedExpenses && storedRevenues && storedOrders) {
       state.cards = JSON.parse(storedCards);
       state.expenses = JSON.parse(storedExpenses);
       state.revenues = JSON.parse(storedRevenues);
       state.orders = JSON.parse(storedOrders);
     } else {
-      state.cards = [...window.DEFAULT_CARDS];
-      state.expenses = [...window.DEFAULT_EXPENSES];
-      state.revenues = [...window.DEFAULT_REVENUES];
-      state.orders = [...window.DEFAULT_ORDERS];
+      state.cards = currentUser ? [] : [...window.DEFAULT_CARDS];
+      state.expenses = currentUser ? [] : [...window.DEFAULT_EXPENSES];
+      state.revenues = currentUser ? [] : [...window.DEFAULT_REVENUES];
+      state.orders = currentUser ? [] : [...window.DEFAULT_ORDERS];
     }
 
-    state.accounts = storedAccounts ? JSON.parse(storedAccounts) : [...window.DEFAULT_ACCOUNTS];
-    state.recurring = storedRecurring ? JSON.parse(storedRecurring) : [...window.DEFAULT_RECURRING];
-    state.goals = storedGoals ? JSON.parse(storedGoals) : [...window.DEFAULT_GOALS];
-    state.userName = storedUserName || "Gley Rocha";
-    state.tagline = storedTagline || "Não se trata de quanto você ganha, mas de como você gerencia.";
+    state.accounts = storedAccounts ? JSON.parse(storedAccounts) : (currentUser ? [] : [...window.DEFAULT_ACCOUNTS]);
+    state.recurring = storedRecurring ? JSON.parse(storedRecurring) : (currentUser ? [] : [...window.DEFAULT_RECURRING]);
+    state.goals = storedGoals ? JSON.parse(storedGoals) : (currentUser ? [] : [...window.DEFAULT_GOALS]);
+    state.userName = storedUserName || currentUser?.displayName || (currentUser ? "Usuário" : "Gley Rocha");
+    state.tagline = storedTagline || DEFAULT_TAGLINE;
 
     updateProfileUI();
 
@@ -455,7 +557,7 @@ document.addEventListener("DOMContentLoaded", () => {
           state.accounts = cloudState.accounts || [];
           state.recurring = cloudState.recurring || [];
           state.goals = cloudState.goals || [];
-          state.userName = cloudState.userName || "Gley Rocha";
+          state.userName = cloudState.userName || currentUser.displayName || "Usuário";
           state.tagline = cloudState.tagline || "";
           if (cloudState.theme) {
             state.theme = cloudState.theme;
@@ -465,18 +567,19 @@ document.addEventListener("DOMContentLoaded", () => {
           updateProfileUI();
           updateSyncIndicator("online");
         } else {
-          if (confirm("Você se conectou à nuvem pela primeira vez! Deseja enviar seus dados financeiros locais atuais para o banco de dados?")) {
+          const hasLocalData = [
+            state.cards,
+            state.expenses,
+            state.revenues,
+            state.orders,
+            state.accounts,
+            state.recurring,
+            state.goals
+          ].some((items) => items.length > 0);
+          if (hasLocalData && confirm("Deseja enviar os dados deste dispositivo para esta conta?")) {
             await saveState();
           } else {
-            state.cards = [...window.DEFAULT_CARDS];
-            state.expenses = [...window.DEFAULT_EXPENSES];
-            state.revenues = [...window.DEFAULT_REVENUES];
-            state.orders = [...window.DEFAULT_ORDERS];
-            state.accounts = [...window.DEFAULT_ACCOUNTS];
-            state.recurring = [...window.DEFAULT_RECURRING];
-            state.goals = [...window.DEFAULT_GOALS];
-            state.userName = "Gley Rocha";
-            state.tagline = "Não se trata de quanto você ganha, mas de como você gerencia.";
+            resetStateForNewUser(currentUser.displayName || "Usuário");
             await saveState();
           }
         }
@@ -495,16 +598,16 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   async function saveState() {
-    localStorage.setItem("gley-finance-cards", JSON.stringify(state.cards));
-    localStorage.setItem("gley-finance-expenses", JSON.stringify(state.expenses));
-    localStorage.setItem("gley-finance-revenues", JSON.stringify(state.revenues));
-    localStorage.setItem("gley-finance-orders", JSON.stringify(state.orders));
-    localStorage.setItem("gley-finance-accounts", JSON.stringify(state.accounts));
-    localStorage.setItem("gley-finance-recurring", JSON.stringify(state.recurring));
-    localStorage.setItem("gley-finance-goals", JSON.stringify(state.goals));
-    localStorage.setItem("gley-finance-username", state.userName);
-    localStorage.setItem("gley-finance-tagline", state.tagline);
-    localStorage.setItem("gley-finance-theme", state.theme);
+    localStorage.setItem(getLocalStorageKey("cards"), JSON.stringify(state.cards));
+    localStorage.setItem(getLocalStorageKey("expenses"), JSON.stringify(state.expenses));
+    localStorage.setItem(getLocalStorageKey("revenues"), JSON.stringify(state.revenues));
+    localStorage.setItem(getLocalStorageKey("orders"), JSON.stringify(state.orders));
+    localStorage.setItem(getLocalStorageKey("accounts"), JSON.stringify(state.accounts));
+    localStorage.setItem(getLocalStorageKey("recurring"), JSON.stringify(state.recurring));
+    localStorage.setItem(getLocalStorageKey("goals"), JSON.stringify(state.goals));
+    localStorage.setItem(getLocalStorageKey("username"), state.userName);
+    localStorage.setItem(getLocalStorageKey("tagline"), state.tagline);
+    localStorage.setItem(getLocalStorageKey("theme"), state.theme);
 
     if (isCloudEnabled && currentUser) {
       try {
@@ -3102,7 +3205,7 @@ document.addEventListener("DOMContentLoaded", () => {
             console.error("Erro ao limpar dados na nuvem:", err);
           }
         }
-        localStorage.clear();
+        clearCurrentLocalData();
         location.reload();
       }
     });
@@ -3112,8 +3215,10 @@ document.addEventListener("DOMContentLoaded", () => {
   // 12. BOOTSTRAP DO SISTEMA
   // ==========================================================================
   injectSVGIcons();
-  initFirebase().then(() => {
-    loadState();
+  initFirebase().then((cloudEnabled) => {
+    if (!cloudEnabled) {
+      loadState();
+    }
   });
 
   // Escutar redimensionamento da janela para redesenhar o gráfico responsivamente

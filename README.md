@@ -1,6 +1,6 @@
-# Finanças Gley Rocha
+# Finance Manager
 
-Gerenciador financeiro premium em HTML, CSS e JavaScript puro. O projeto funciona direto no navegador e guarda os dados localmente no `localStorage`, sem banco de dados e sem servidor.
+Gerenciador financeiro em HTML, CSS e JavaScript puro, com contas de usuário e sincronização pelo Firebase Authentication e Cloud Firestore.
 
 ## Recursos
 
@@ -9,6 +9,17 @@ Gerenciador financeiro premium em HTML, CSS e JavaScript puro. O projeto funcion
 - Visão de fluxo de caixa e relatórios visuais.
 - Tema claro/escuro e interface responsiva.
 - Exportação e restauração de dados em JSON pela área de administração.
+- Cadastro e login por e-mail, recuperação de senha e dados privados por usuário.
+
+## Configuração do Firebase
+
+1. Em `Authentication > Sign-in method`, habilite o provedor `E-mail/senha`.
+2. Em `Authentication > Settings > Authorized domains`, inclua o domínio publicado na Vercel.
+3. Crie o banco do Cloud Firestore.
+4. Publique o conteúdo de `firestore.rules` na aba `Firestore Database > Regras`.
+5. Na Vercel, mantenha as variáveis `FIREBASE_API_KEY`, `FIREBASE_AUTH_DOMAIN`, `FIREBASE_PROJECT_ID`, `FIREBASE_STORAGE_BUCKET`, `FIREBASE_MESSAGING_SENDER_ID` e `FIREBASE_APP_ID`.
+
+Cada usuário é autenticado pelo Firebase e seus dados são gravados somente em `financial_data/{uid}`. As regras impedem que uma conta leia ou altere o documento de outra.
 
 ## Como abrir localmente
 
