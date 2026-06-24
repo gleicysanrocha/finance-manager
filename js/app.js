@@ -19,7 +19,8 @@ document.addEventListener("DOMContentLoaded", () => {
     selectedYear: 2026,
     currentTab: "despesas",
     searchQuery: "",
-    selectedCardId: "card-1"
+    selectedCardId: "card-1",
+    tier: "free"
   };
 
   // Frases financeiras rotativas para o Tagline
@@ -551,6 +552,9 @@ document.addEventListener("DOMContentLoaded", () => {
       document.body.className = `theme-${storedTheme}`;
     }
 
+    const storedTier = getLocalValue("tier");
+    state.tier = storedTier || "free";
+
     const storedCards = getLocalValue("cards");
     const storedExpenses = getLocalValue("expenses");
     const storedRevenues = getLocalValue("revenues");
@@ -579,6 +583,7 @@ document.addEventListener("DOMContentLoaded", () => {
     state.tagline = storedTagline || DEFAULT_TAGLINE;
 
     updateProfileUI();
+    updateTierUI();
 
     if (isCloudEnabled && currentUser) {
       updateSyncIndicator("syncing");
@@ -586,8 +591,10 @@ document.addEventListener("DOMContentLoaded", () => {
         const docRef = db.collection("financial_data").doc(currentUser.uid);
         const doc = await docRef.get();
 
-        if (doc.exists && doc.data().state) {
-          const cloudState = doc.data().state;
+        if (doc.exists) {
+          const docData = doc.data();
+          const cloudState = docData.state || {};
+          
           state.cards = cloudState.cards || [];
           state.expenses = cloudState.expenses || [];
           state.revenues = cloudState.revenues || [];
@@ -597,12 +604,16 @@ document.addEventListener("DOMContentLoaded", () => {
           state.goals = cloudState.goals || [];
           state.userName = cloudState.userName || currentUser.displayName || "Usuário";
           state.tagline = cloudState.tagline || "";
+          state.tier = docData.tier || cloudState.tier || "free";
+          localStorage.setItem(getLocalStorageKey("tier"), state.tier);
+          
           if (cloudState.theme) {
             state.theme = cloudState.theme;
             document.body.className = `theme-${state.theme}`;
             updateThemeIcon();
           }
           updateProfileUI();
+          updateTierUI();
           updateSyncIndicator("online");
         } else {
           const hasLocalData = [
@@ -633,6 +644,30 @@ document.addEventListener("DOMContentLoaded", () => {
     if (yearSelect) state.selectedYear = parseInt(yearSelect.value);
     
     updateAllDashboard();
+
+    // Verificar retornos de checkout (Stripe ou Mock)
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get("upgrade") === "success") {
+      alert("Parabéns! Sua assinatura Premium foi processada. Suas funcionalidades avançadas já estão liberadas! 🚀");
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (urlParams.get("upgrade") === "cancel") {
+      alert("A assinatura foi cancelada. Você pode tentar novamente a qualquer momento!");
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (urlParams.get("mock_checkout") === "true") {
+      const mockUserId = urlParams.get("userId");
+      if (currentUser && currentUser.uid === mockUserId) {
+        state.tier = "premium";
+        await saveState();
+        alert("Checkout de Simulação concluído com sucesso! Plano Premium ativo na conta. 🚀");
+      } else if (!currentUser) {
+        state.tier = "premium";
+        localStorage.setItem(getLocalStorageKey("tier"), "premium");
+        alert("Checkout de Simulação concluído! Plano Premium ativo localmente. 🚀");
+      }
+      window.history.replaceState({}, document.title, window.location.pathname);
+      updateTierUI();
+      updateAllDashboard();
+    }
   }
 
   async function saveState() {
@@ -646,6 +681,9 @@ document.addEventListener("DOMContentLoaded", () => {
     localStorage.setItem(getLocalStorageKey("username"), state.userName);
     localStorage.setItem(getLocalStorageKey("tagline"), state.tagline);
     localStorage.setItem(getLocalStorageKey("theme"), state.theme);
+    localStorage.setItem(getLocalStorageKey("tier"), state.tier);
+
+    updateTierUI();
 
     if (isCloudEnabled && currentUser) {
       try {
@@ -660,14 +698,16 @@ document.addEventListener("DOMContentLoaded", () => {
           goals: state.goals,
           userName: state.userName,
           tagline: state.tagline,
-          theme: state.theme
+          theme: state.theme,
+          tier: state.tier
         };
 
         const docRef = db.collection("financial_data").doc(currentUser.uid);
         await docRef.set({
           state: payload,
+          tier: state.tier,
           updated_at: new Date().toISOString()
-        });
+        }, { merge: true });
 
         updateSyncIndicator("online");
       } catch (err) {
@@ -2562,6 +2602,13 @@ document.addEventListener("DOMContentLoaded", () => {
       e.preventDefault(); // Impedir o comportamento padrão do link
 
       const targetTab = navLink.getAttribute("data-tab");
+
+      // Bloquear aba de relatórios no Plano Grátis
+      if (targetTab === "relatorios" && state.tier !== "premium") {
+        showUpgradeModal("A aba de Relatórios & BI está bloqueada no Plano Gratuito! Faça o upgrade para o Plano Premium para liberar relatórios consolidados e BI.");
+        return;
+      }
+
       const targetView = document.getElementById("view-" + targetTab);
 
       if (!targetView) return; // Segurança: se a view não existir, não faz nada
@@ -2642,6 +2689,26 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!trigger || !modal) return;
     
     trigger.addEventListener("click", () => {
+      // Validar limites do Plano Gratuito
+      if (state.tier !== "premium") {
+        if (formId === "form-novo-cartao" && state.cards.length >= 1) {
+          showUpgradeModal("Limite do Plano Gratuito atingido! No plano gratuito você pode cadastrar apenas 1 cartão de crédito.");
+          return;
+        }
+        if (formId === "form-nova-conta" && state.accounts.length >= 1) {
+          showUpgradeModal("Limite do Plano Gratuito atingido! No plano gratuito você pode cadastrar apenas 1 conta bancária.");
+          return;
+        }
+        if (formId === "form-nova-meta" && state.goals.length >= 2) {
+          showUpgradeModal("Limite do Plano Gratuito atingido! No plano gratuito você pode cadastrar apenas 2 metas/objetivos.");
+          return;
+        }
+        if ((formId === "form-nova-despesa" || formId === "form-nova-receita" || formId === "form-nova-os") && getCurrentMonthTransactionCount() >= 10) {
+          showUpgradeModal("Limite do Plano Gratuito atingido! No plano gratuito você pode cadastrar até 10 lançamentos (despesas/receitas/OS) por mês.");
+          return;
+        }
+      }
+
       // Definir data de hoje por padrão nos inputs correspondentes
       const dateInput = modal.querySelector("input[type='date']");
       if (dateInput) {
@@ -2886,6 +2953,10 @@ document.addEventListener("DOMContentLoaded", () => {
       e.preventDefault();
       
       const id = document.getElementById("exp-id").value;
+      if (!id && state.tier !== "premium" && getCurrentMonthTransactionCount() >= 10) {
+        showUpgradeModal("Limite do Plano Gratuito atingido! No plano gratuito você pode cadastrar até 10 lançamentos (despesas/receitas/OS) por mês.");
+        return;
+      }
       const description = document.getElementById("exp-desc").value;
       const value = parseFloat(document.getElementById("exp-val").value);
       const date = document.getElementById("exp-date").value;
@@ -2933,6 +3004,10 @@ document.addEventListener("DOMContentLoaded", () => {
       e.preventDefault();
 
       const id = document.getElementById("os-id").value;
+      if (!id && state.tier !== "premium" && getCurrentMonthTransactionCount() >= 10) {
+        showUpgradeModal("Limite do Plano Gratuito atingido! No plano gratuito você pode cadastrar até 10 lançamentos (despesas/receitas/OS) por mês.");
+        return;
+      }
       const customer = document.getElementById("os-customer").value;
       const service = document.getElementById("os-service").value;
       const value = parseFloat(document.getElementById("os-val").value);
@@ -2973,6 +3048,11 @@ document.addEventListener("DOMContentLoaded", () => {
     formCartao.addEventListener("submit", (e) => {
       e.preventDefault();
 
+      if (state.tier !== "premium" && state.cards.length >= 1) {
+        showUpgradeModal("Limite do Plano Gratuito atingido! No plano gratuito você pode cadastrar apenas 1 cartão de crédito.");
+        return;
+      }
+
       const name = document.getElementById("card-name").value;
       const brand = document.getElementById("card-brand").value;
       const digits = document.getElementById("card-digits").value;
@@ -3012,6 +3092,10 @@ document.addEventListener("DOMContentLoaded", () => {
       e.preventDefault();
 
       const id = document.getElementById("rev-id").value;
+      if (!id && state.tier !== "premium" && getCurrentMonthTransactionCount() >= 10) {
+        showUpgradeModal("Limite do Plano Gratuito atingido! No plano gratuito você pode cadastrar até 10 lançamentos (despesas/receitas/OS) por mês.");
+        return;
+      }
       const description = document.getElementById("rev-desc").value;
       const value = parseFloat(document.getElementById("rev-val").value);
       const date = document.getElementById("rev-date").value;
@@ -3048,6 +3132,11 @@ document.addEventListener("DOMContentLoaded", () => {
   if (formConta) {
     formConta.addEventListener("submit", (e) => {
       e.preventDefault();
+
+      if (state.tier !== "premium" && state.accounts.length >= 1) {
+        showUpgradeModal("Limite do Plano Gratuito atingido! No plano gratuito você pode cadastrar apenas 1 conta bancária.");
+        return;
+      }
 
       const name = document.getElementById("acc-name").value;
       const type = document.getElementById("acc-type").value;
@@ -3146,6 +3235,11 @@ document.addEventListener("DOMContentLoaded", () => {
       e.preventDefault();
 
       const id = document.getElementById("goal-id").value;
+      if (!id && state.tier !== "premium" && state.goals.length >= 2) {
+        showUpgradeModal("Limite do Plano Gratuito atingido! No plano gratuito você pode cadastrar apenas 2 metas/objetivos.");
+        return;
+      }
+
       const icon = document.getElementById("goal-icon").value || "🎯";
       const name = document.getElementById("goal-name").value;
       const saved = parseFloat(document.getElementById("goal-saved").value);
@@ -3304,6 +3398,141 @@ document.addEventListener("DOMContentLoaded", () => {
       } else {
         showAuthOverlay();
         profileDropdown.classList.remove("active");
+      }
+    });
+  }
+
+  // ==========================================================================
+  // 11b. MONETIZAÇÃO SAAS (FREE / PREMIUM & STRIPE INTEGRATION)
+  // ==========================================================================
+  
+  function getCurrentMonthTransactionCount() {
+    const month = state.selectedMonth;
+    const year = state.selectedYear;
+    
+    // Contar despesas deste mês/ano
+    const expenseCount = state.expenses.filter(e => {
+      const d = new Date(e.date + "T00:00:00");
+      return d.getMonth() === month && d.getFullYear() === year;
+    }).length;
+
+    // Contar receitas deste mês/ano
+    const revenueCount = state.revenues.filter(r => {
+      const d = new Date(r.date + "T00:00:00");
+      return d.getMonth() === month && d.getFullYear() === year;
+    }).length;
+
+    // Contar OS deste mês/ano
+    const osCount = state.orders.filter(o => {
+      const d = new Date(o.date + "T00:00:00");
+      return d.getMonth() === month && d.getFullYear() === year;
+    }).length;
+
+    return expenseCount + revenueCount + osCount;
+  }
+
+  function updateTierUI() {
+    const relatoriosNavItem = document.querySelector('.main-nav .nav-item[data-tab="relatorios"]');
+    if (relatoriosNavItem) {
+      const oldLock = relatoriosNavItem.querySelector(".lock-indicator");
+      if (oldLock) oldLock.remove();
+      
+      if (state.tier !== "premium") {
+        const lock = document.createElement("span");
+        lock.className = "lock-indicator";
+        lock.style.marginLeft = "4px";
+        lock.style.fontSize = "0.75rem";
+        lock.textContent = "🔒";
+        relatoriosNavItem.appendChild(lock);
+      }
+    }
+
+    const userNameSpan = document.querySelector(".user-profile-badge .user-name");
+    if (userNameSpan) {
+      const oldCrown = userNameSpan.querySelector(".premium-crown");
+      if (oldCrown) oldCrown.remove();
+      
+      if (state.tier === "premium") {
+        const crown = document.createElement("span");
+        crown.className = "premium-crown";
+        crown.style.marginLeft = "4px";
+        crown.textContent = "👑";
+        crown.title = "Usuário Premium";
+        userNameSpan.appendChild(crown);
+      }
+    }
+  }
+
+  const modalUpgrade = document.getElementById("modal-upgrade-premium");
+  const closeUpgrade = document.getElementById("close-modal-upgrade");
+  const btnSubscribeNow = document.getElementById("btn-subscribe-now");
+
+  if (modalUpgrade) {
+    if (closeUpgrade) {
+      closeUpgrade.addEventListener("click", () => {
+        modalUpgrade.close();
+      });
+    }
+    
+    // Fechar ao clicar fora (no backdrop)
+    modalUpgrade.addEventListener("click", (e) => {
+      const rect = modalUpgrade.getBoundingClientRect();
+      const isInDialog = (rect.top <= e.clientY && e.clientY <= rect.top + rect.height &&
+        rect.left <= e.clientX && e.clientX <= rect.left + rect.width);
+      if (!isInDialog) {
+        modalUpgrade.close();
+      }
+    });
+  }
+
+  function showUpgradeModal(reason) {
+    if (modalUpgrade) {
+      const upgradeSub = modalUpgrade.querySelector(".upgrade-hero p");
+      if (upgradeSub && reason) {
+        upgradeSub.textContent = reason;
+      }
+      modalUpgrade.showModal();
+    }
+  }
+
+  if (btnSubscribeNow) {
+    btnSubscribeNow.addEventListener("click", async () => {
+      if (!currentUser) {
+        alert("Para assinar o plano Premium e sincronizar seus dados, você precisa criar uma conta gratuita (ou fazer login) primeiro.");
+        if (modalUpgrade) modalUpgrade.close();
+        showAuthOverlay();
+        setAuthMode("signup");
+        return;
+      }
+
+      btnSubscribeNow.disabled = true;
+      btnSubscribeNow.textContent = "Carregando checkout...";
+
+      try {
+        const response = await fetch("/api/checkout", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ userId: currentUser.uid })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.url) {
+            window.location.href = data.url;
+          } else {
+            alert("Erro ao gerar sessão de pagamento. Tente novamente.");
+          }
+        } else {
+          alert("Erro de comunicação com o servidor de pagamento.");
+        }
+      } catch (err) {
+        console.error("Erro no checkout:", err);
+        alert("Erro ao conectar com o serviço de assinaturas.");
+      } finally {
+        btnSubscribeNow.disabled = false;
+        btnSubscribeNow.textContent = "Assinar Premium Agora 🚀";
       }
     });
   }
