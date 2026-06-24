@@ -12,7 +12,7 @@ document.addEventListener("DOMContentLoaded", () => {
     accounts: [],
     recurring: [],
     goals: [],
-    userName: "Gley Rocha",
+    userName: "Usuário",
     tagline: "Não se trata de quanto você ganha, mas de como você gerencia.",
     theme: "light",
     selectedMonth: 4, // Maio (0-indexed: 4)
@@ -482,13 +482,36 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function getLocalStorageKey(suffix) {
     const owner = currentUser?.uid || "offline";
-    return `gley-finance-${owner}-${suffix}`;
+    return `finance-manager-${owner}-${suffix}`;
   }
 
   function getLocalValue(suffix) {
-    const scopedValue = localStorage.getItem(getLocalStorageKey(suffix));
+    const newKey = getLocalStorageKey(suffix);
+    const scopedValue = localStorage.getItem(newKey);
     if (scopedValue !== null) return scopedValue;
-    return currentUser ? null : localStorage.getItem(`gley-finance-${suffix}`);
+
+    // Fallback de migração automática
+    const owner = currentUser?.uid || "offline";
+    const oldKey = `gley-finance-${owner}-${suffix}`;
+    const oldScopedValue = localStorage.getItem(oldKey);
+    if (oldScopedValue !== null) {
+      localStorage.setItem(newKey, oldScopedValue);
+      localStorage.removeItem(oldKey);
+      return oldScopedValue;
+    }
+
+    if (!currentUser) {
+      const oldGlobalKey = `gley-finance-${suffix}`;
+      const oldGlobalValue = localStorage.getItem(oldGlobalKey);
+      if (oldGlobalValue !== null) {
+        const newGlobalKey = `finance-manager-${suffix}`;
+        localStorage.setItem(newGlobalKey, oldGlobalValue);
+        localStorage.removeItem(oldGlobalKey);
+        return oldGlobalValue;
+      }
+      return localStorage.getItem(`finance-manager-${suffix}`);
+    }
+    return null;
   }
 
   function clearCurrentLocalData() {
@@ -503,7 +526,15 @@ document.addEventListener("DOMContentLoaded", () => {
       "username",
       "tagline",
       "theme"
-    ].forEach((suffix) => localStorage.removeItem(getLocalStorageKey(suffix)));
+    ].forEach((suffix) => {
+      localStorage.removeItem(getLocalStorageKey(suffix));
+      const owner = currentUser?.uid || "offline";
+      localStorage.removeItem(`gley-finance-${owner}-${suffix}`);
+      if (!currentUser) {
+        localStorage.removeItem(`gley-finance-${suffix}`);
+        localStorage.removeItem(`finance-manager-${suffix}`);
+      }
+    });
   }
 
   async function loadState() {
@@ -537,7 +568,7 @@ document.addEventListener("DOMContentLoaded", () => {
     state.accounts = storedAccounts ? JSON.parse(storedAccounts) : (currentUser ? [] : [...window.DEFAULT_ACCOUNTS]);
     state.recurring = storedRecurring ? JSON.parse(storedRecurring) : (currentUser ? [] : [...window.DEFAULT_RECURRING]);
     state.goals = storedGoals ? JSON.parse(storedGoals) : (currentUser ? [] : [...window.DEFAULT_GOALS]);
-    state.userName = storedUserName || currentUser?.displayName || (currentUser ? "Usuário" : "Gley Rocha");
+    state.userName = storedUserName || currentUser?.displayName || (currentUser ? "Usuário" : "Usuário");
     state.tagline = storedTagline || DEFAULT_TAGLINE;
 
     updateProfileUI();

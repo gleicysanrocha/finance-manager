@@ -78,7 +78,7 @@ const DEFAULT_REVENUES = [
 const DEFAULT_ORDERS = [
   {
     id: "os-1",
-    customer: "Clínica Gley Saúde",
+    customer: "Clínica Exemplo",
     service: "Desenvolvimento de Site Institucional",
     value: 2400.00,
     status: "Concluído",
