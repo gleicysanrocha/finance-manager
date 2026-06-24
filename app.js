@@ -3328,6 +3328,52 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // 1c. Gerenciar Outro Usuário (Admin)
+  const formAdminManageUser = document.getElementById("form-admin-manage-user");
+  if (formAdminManageUser) {
+    formAdminManageUser.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const email = document.getElementById("manage-user-email").value.trim();
+      const tier = document.getElementById("manage-user-tier").value;
+      const adminSecret = document.getElementById("manage-admin-secret").value;
+      const btnSubmit = document.getElementById("btn-submit-manage-user");
+
+      if (!email || !tier || !adminSecret) {
+        alert("Todos os campos do formulário são obrigatórios.");
+        return;
+      }
+
+      btnSubmit.disabled = true;
+      btnSubmit.textContent = "Processando alteração...";
+
+      try {
+        const response = await fetch("/api/admin/set-tier", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ email, tier, adminSecret })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          alert(data.message || `Usuário ${email} atualizado com sucesso!`);
+          formAdminManageUser.reset();
+        } else {
+          alert(`Erro: ${data.error || "Não foi possível concluir a ação."}`);
+        }
+      } catch (err) {
+        console.error("Erro ao gerenciar usuário:", err);
+        alert("Erro de conexão ao tentar atualizar o plano do usuário.");
+      } finally {
+        btnSubmit.disabled = false;
+        btnSubmit.textContent = "Atualizar Plano do Usuário 🚀";
+      }
+    });
+  }
+
   // 2. Exportar dados em JSON
   const btnExportData = document.getElementById("btn-export-data");
   if (btnExportData) {
