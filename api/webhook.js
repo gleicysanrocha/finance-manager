@@ -1,21 +1,37 @@
 import Stripe from "stripe";
 import admin from "firebase-admin";
 
-// Inicializa o SDK do Firebase Admin se ainda não foi feito
-if (!admin.apps.length) {
+function initializeFirebaseAdmin() {
+  if (admin.apps.length) return;
+
+  const saVar = process.env.FIREBASE_SERVICE_ACCOUNT;
+  if (!saVar) {
+    throw new Error(
+      "A variável de ambiente FIREBASE_SERVICE_ACCOUNT está ausente. " +
+      "Por favor, configure as credenciais da conta de serviço do Firebase nas configurações do Vercel."
+    );
+  }
+
   try {
-    if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-      const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-      admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount)
-      });
+    let serviceAccount;
+    const trimmed = saVar.trim();
+    if (trimmed.startsWith("{")) {
+      serviceAccount = JSON.parse(trimmed);
     } else {
-      admin.initializeApp({
-        projectId: process.env.FIREBASE_PROJECT_ID
-      });
+      const decoded = Buffer.from(trimmed, 'base64').toString('utf8');
+      serviceAccount = JSON.parse(decoded);
     }
+
+    if (serviceAccount.private_key) {
+      serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
+    }
+
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount)
+    });
   } catch (err) {
-    console.error("Erro ao inicializar o Firebase Admin:", err);
+    console.error("Erro detalhado ao inicializar o Firebase Admin:", err);
+    throw new Error("Falha ao inicializar o Firebase Admin: " + err.message);
   }
 }
 
@@ -57,6 +73,7 @@ export default async function handler(request, response) {
   }
 
   try {
+    initializeFirebaseAdmin();
     // Tratar o tipo de evento recebido do Stripe
     if (event.type === "checkout.session.completed") {
       const session = event.data.object;
