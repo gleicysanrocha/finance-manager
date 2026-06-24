@@ -559,15 +559,15 @@ document.addEventListener("DOMContentLoaded", () => {
       state.revenues = JSON.parse(storedRevenues);
       state.orders = JSON.parse(storedOrders);
     } else {
-      state.cards = currentUser ? [] : [...window.DEFAULT_CARDS];
-      state.expenses = currentUser ? [] : [...window.DEFAULT_EXPENSES];
-      state.revenues = currentUser ? [] : [...window.DEFAULT_REVENUES];
-      state.orders = currentUser ? [] : [...window.DEFAULT_ORDERS];
+      state.cards = [];
+      state.expenses = [];
+      state.revenues = [];
+      state.orders = [];
     }
 
-    state.accounts = storedAccounts ? JSON.parse(storedAccounts) : (currentUser ? [] : [...window.DEFAULT_ACCOUNTS]);
-    state.recurring = storedRecurring ? JSON.parse(storedRecurring) : (currentUser ? [] : [...window.DEFAULT_RECURRING]);
-    state.goals = storedGoals ? JSON.parse(storedGoals) : (currentUser ? [] : [...window.DEFAULT_GOALS]);
+    state.accounts = storedAccounts ? JSON.parse(storedAccounts) : [];
+    state.recurring = storedRecurring ? JSON.parse(storedRecurring) : [];
+    state.goals = storedGoals ? JSON.parse(storedGoals) : [];
     state.userName = storedUserName || currentUser?.displayName || (currentUser ? "Usuário" : "Usuário");
     state.tagline = storedTagline || DEFAULT_TAGLINE;
 
