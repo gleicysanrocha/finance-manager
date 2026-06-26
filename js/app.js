@@ -44,12 +44,14 @@ document.addEventListener("DOMContentLoaded", () => {
       "nav-icon-goal": ICONS.goal,
       "nav-icon-account": ICONS.account,
       "nav-icon-report": ICONS.report,
+      "nav-icon-profile": ICONS.user,
       "nav-icon-admin": ICONS.admin,
       "bottom-icon-budget": ICONS.budget,
       "bottom-icon-recurring": ICONS.recurring,
       "bottom-icon-goal": ICONS.goal,
       "bottom-icon-account": ICONS.account,
       "bottom-icon-report": ICONS.report,
+      "bottom-icon-profile": ICONS.user,
       "bottom-icon-admin": ICONS.admin,
       "user-avatar-svg": ICONS.user,
       "auth-logo-svg": ICONS.walletFilled,
@@ -2315,7 +2317,93 @@ document.addEventListener("DOMContentLoaded", () => {
   const bottomNavItems = document.querySelectorAll(".bottom-nav-item");
   const allTabViews = document.querySelectorAll(".tab-view");
 
+  function updateProfileTab() {
+    const displayName = document.getElementById("profile-display-name");
+    const displayEmail = document.getElementById("profile-display-email");
+    const displayUid = document.getElementById("profile-display-uid");
+    const displaySync = document.getElementById("profile-display-sync");
+    
+    if (displayName) displayName.innerText = state.userName;
+    if (displayEmail) displayEmail.innerText = currentUser ? currentUser.email : "Modo Local (Offline)";
+    if (displayUid) displayUid.innerText = currentUser ? currentUser.uid : "offline";
+    
+    if (displaySync) {
+      if (currentUser) {
+        displaySync.innerHTML = `<span style="color: var(--color-success)">🟢</span> Nuvem Sincronizada (Firebase)`;
+      } else {
+        displaySync.innerHTML = `<span style="color: var(--color-warning)">📴</span> Armazenamento Local (Somente este dispositivo)`;
+      }
+    }
+
+    const tierBadge = document.getElementById("profile-tier-badge");
+    const tierLimits = document.getElementById("profile-tier-limits");
+    const upgradeAction = document.getElementById("profile-upgrade-action-container");
+
+    if (tierBadge) {
+      if (state.tier === "premium") {
+        tierBadge.innerText = "👑 PLANO PREMIUM ATIVO";
+        tierBadge.style.background = "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)";
+      } else {
+        tierBadge.innerText = "🔒 PLANO GRATUITO";
+        tierBadge.style.background = "linear-gradient(135deg, #64748b 0%, #94a3b8 100%)";
+      }
+    }
+
+    if (tierLimits) {
+      if (state.tier === "premium") {
+        tierLimits.innerHTML = `
+          <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem;">
+            <li>✅ <strong>Cartões de Crédito:</strong> Ilimitados</li>
+            <li>✅ <strong>Contas Bancárias:</strong> Ilimitadas</li>
+            <li>✅ <strong>Metas & Objetivos:</strong> Ilimitados</li>
+            <li>✅ <strong>Relatórios & BI:</strong> Totalmente Liberados</li>
+            <li>✅ <strong>Lançamentos mensais:</strong> Ilimitados</li>
+            <li>✅ <strong>Sincronização Nuvem:</strong> Ativa em tempo real</li>
+          </ul>
+        `;
+      } else {
+        tierLimits.innerHTML = `
+          <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem;">
+            <li>⚠️ <strong>Cartões de Crédito:</strong> Limite de 1 cadastrado</li>
+            <li>⚠️ <strong>Contas Bancárias:</strong> Limite de 1 cadastrada</li>
+            <li>⚠️ <strong>Metas & Objetivos:</strong> Limite de 2 cadastrados</li>
+            <li>❌ <strong>Relatórios & BI:</strong> Bloqueados no plano gratuito</li>
+            <li>⚠️ <strong>Lançamentos mensais:</strong> Máximo de 10 transações</li>
+            <li>ℹ️ <em>Faça o upgrade para remover todas as limitações e ativar relatórios avançados!</em></li>
+          </ul>
+        `;
+      }
+    }
+
+    if (upgradeAction) {
+      if (state.tier === "premium") {
+        upgradeAction.innerHTML = `
+          <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.2); padding: 1rem; border-radius: 8px; text-align: center; color: var(--color-success); font-weight: 700; font-size: 0.88rem;">
+            🎉 Você possui acesso vitalício e ilimitado a todos os recursos do Finance Manager. Obrigado pelo apoio!
+          </div>
+        `;
+      } else {
+        upgradeAction.innerHTML = `
+          <button type="button" class="btn-upgrade-action" id="btn-profile-upgrade" style="width: 100%; border: none; padding: 0.75rem; font-size: 0.9rem; border-radius: var(--radius-md); font-weight: 700; background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%); color: white; cursor: pointer; transition: var(--transition-fast);">
+            Obter Licença Premium 🚀
+          </button>
+        `;
+        const profileUpgradeBtn = document.getElementById("btn-profile-upgrade");
+        if (profileUpgradeBtn) {
+          profileUpgradeBtn.addEventListener("click", () => {
+            showUpgradeModal("Obtenha a licença Premium e libere todos os recursos sem limites!");
+          });
+        }
+      }
+    }
+  }
+  window.updateProfileTab = updateProfileTab;
+
   function handleTabSwitch(targetTab) {
+    if (targetTab === "perfil") {
+      updateProfileTab();
+    }
+
     // Impedir acesso à aba administrador por não-admins
     if (targetTab === "administrador" && !(window.isAdminUser && window.isAdminUser())) {
       handleTabSwitch("dashboard");
@@ -3291,6 +3379,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     updateAdminSubscriptionCard();
+    updateProfileTab();
   }
 
   function updateAdminSubscriptionCard() {

@@ -55,6 +55,7 @@
           <li><a href="#" class="nav-item" data-tab="metas"><span class="nav-icon" id="nav-icon-goal"></span>Metas</a></li>
           <li><a href="#" class="nav-item" data-tab="contas"><span class="nav-icon" id="nav-icon-account"></span>Contas</a></li>
           <li><a href="#" class="nav-item" data-tab="relatorios"><span class="nav-icon" id="nav-icon-report"></span>Relatórios</a></li>
+          <li><a href="#" class="nav-item" data-tab="perfil"><span class="nav-icon" id="nav-icon-profile"></span>Minha Conta</a></li>
           <li id="main-nav-admin" style="display: none;"><a href="#" class="nav-item" data-tab="administrador"><span class="nav-icon" id="nav-icon-admin"></span>Administrador</a></li>
         </ul>
       </nav>
@@ -753,6 +754,68 @@
         </section>
       </div>
 
+      <!-- VISÃO 7: PERFIL & LICENÇA -->
+      <div id="view-perfil" class="tab-view" style="display: none;">
+        <section class="welcome-filter-section">
+          <div class="welcome-text">
+            <h2>Minha Conta & Licença 👑</h2>
+            <p>Gerencie seus dados de usuário, segurança e consulte o status da sua licença.</p>
+          </div>
+        </section>
+
+        <section class="mid-dashboard-grid" style="grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); margin-top: 1.5rem; gap: 1.5rem; display: grid;">
+          
+          <!-- Card de Informações do Usuário -->
+          <div class="glass-effect" style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem;">
+            <h3 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 0.25rem; display: flex; align-items: center; gap: 0.5rem;">
+              👤 Informações Pessoais
+            </h3>
+            <div style="display: flex; flex-direction: column; gap: 1rem; margin-top: 0.5rem;">
+              <div>
+                <label style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Nome do Usuário</label>
+                <div id="profile-display-name" style="font-size: 1.1rem; font-weight: 700; color: var(--text-main); margin-top: 0.15rem;">Usuário</div>
+              </div>
+              <div>
+                <label style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">E-mail Cadastrado</label>
+                <div id="profile-display-email" style="font-size: 1rem; color: var(--text-main); margin-top: 0.15rem;">Modo Local (Offline)</div>
+              </div>
+              <div>
+                <label style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">ID do Usuário (UID)</label>
+                <div id="profile-display-uid" style="font-size: 0.8rem; font-family: monospace; background: rgba(148, 163, 184, 0.1); padding: 6px 10px; border-radius: 6px; word-break: break-all; color: var(--text-muted); margin-top: 0.25rem;">offline</div>
+              </div>
+              <div>
+                <label style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Tipo de Armazenamento</label>
+                <div id="profile-display-sync" style="font-size: 0.88rem; font-weight: 600; color: var(--color-warning); margin-top: 0.15rem; display: flex; align-items: center; gap: 0.35rem;">
+                  <span>📴</span> Armazenamento Local
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card de Informações da Licença -->
+          <div class="glass-effect" style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem;">
+            <h3 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 0.25rem; display: flex; align-items: center; gap: 0.5rem;">
+              👑 Status da Licença
+            </h3>
+            
+            <div id="profile-tier-badge-container" style="margin-top: 0.5rem;">
+              <span id="profile-tier-badge" style="background: linear-gradient(135deg, #64748b 0%, #94a3b8 100%); color: white; padding: 6px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: 800; display: inline-block;">PLANO GRATUITO</span>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.5rem; font-size: 0.85rem; color: var(--text-muted); line-height: 1.5;">
+              <div id="profile-tier-limits">
+                <!-- Limites do plano mostrados aqui -->
+              </div>
+            </div>
+
+            <div id="profile-upgrade-action-container" style="margin-top: auto; padding-top: 1rem;">
+              <!-- Botão de Upgrade ou Mensagem de Sucesso -->
+            </div>
+          </div>
+
+        </section>
+      </div>
+
     </div>
   </main>
 
@@ -1311,6 +1374,12 @@
         <a href="#" class="bottom-nav-item" data-tab="relatorios">
           <span class="bottom-nav-icon" id="bottom-icon-report"></span>
           <span>Relatórios</span>
+        </a>
+      </li>
+      <li>
+        <a href="#" class="bottom-nav-item" data-tab="perfil">
+          <span class="bottom-nav-icon" id="bottom-icon-profile"></span>
+          <span>Perfil</span>
         </a>
       </li>
       <li id="bottom-nav-admin" style="display: none;">
