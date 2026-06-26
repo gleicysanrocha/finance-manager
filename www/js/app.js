@@ -644,41 +644,231 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Atualiza a tabela resumo anual e títulos de relatório de forma dinâmica
   function updateReportSummary() {
+    renderAnnualReport();
+  }
+
+  // Nova Função: Renderiza o Relatório e BI Anual Completo de forma dinâmica
+  function renderAnnualReport() {
+    const reportYearSelect = document.getElementById("select-report-year");
+    const selectedReportYear = reportYearSelect ? parseInt(reportYearSelect.value) : state.selectedYear;
+
     const monthNames = [
       "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
       "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
     ];
+
+    // 1. Calcular receita e despesa para todos os 12 meses do ano selecionado
+    let annualIncome = 0;
+    let annualExpense = 0;
+    const monthlyData = [];
+
+    for (let m = 0; m < 12; m++) {
+      // Receitas do mês m e ano selecionado
+      const monthRevenues = state.revenues.filter(r => {
+        const d = new Date(r.date + "T00:00:00");
+        return d.getMonth() === m && d.getFullYear() === selectedReportYear;
+      });
+      const totalRevenues = monthRevenues.reduce((sum, r) => sum + r.value, 0);
+
+      // Despesas do mês m e ano selecionado
+      const monthExpenses = getMonthlyExpenses(m, selectedReportYear);
+      const totalExpenses = monthExpenses.reduce((sum, e) => sum + e.value, 0);
+
+      const netFlow = totalRevenues - totalExpenses;
+      
+      annualIncome += totalRevenues;
+      annualExpense += totalExpenses;
+
+      monthlyData.push({
+        monthIndex: m,
+        monthName: monthNames[m],
+        revenues: totalRevenues,
+        expenses: totalExpenses,
+        net: netFlow
+      });
+    }
+
+    const annualBalance = annualIncome - annualExpense;
+    const savingRate = annualIncome > 0 ? ((annualBalance / annualIncome) * 100) : 0;
+
+    // 2. Preencher os Cards de Métricas Anuais
+    const valAnnualIncome = document.getElementById("val-annual-income");
+    const valAnnualExpense = document.getElementById("val-annual-expense");
+    const valAnnualBalance = document.getElementById("val-annual-balance");
+    const valAnnualSavingRate = document.getElementById("val-annual-saving-rate");
+
+    if (valAnnualIncome) valAnnualIncome.innerText = formatCurrency(annualIncome);
+    if (valAnnualExpense) valAnnualExpense.innerText = formatCurrency(annualExpense);
     
-    const repLabel = document.getElementById("rep-month-label");
-    const repIncome = document.getElementById("rep-income-current");
-    const repExpense = document.getElementById("rep-expense-current");
-    const repNet = document.getElementById("rep-net-current");
-    const reportTitle = document.getElementById("rep-categories-title");
-
-    if (reportTitle) {
-      reportTitle.innerText = `Despesas por Categoria (${monthNames[state.selectedMonth]}/${state.selectedYear})`;
+    if (valAnnualBalance) {
+      valAnnualBalance.innerText = (annualBalance >= 0 ? "+ " : "- ") + formatCurrency(Math.abs(annualBalance));
+      valAnnualBalance.className = annualBalance >= 0 ? "metric-value text-success" : "metric-value text-danger";
+    }
+    
+    if (valAnnualSavingRate) {
+      valAnnualSavingRate.innerText = `${savingRate.toFixed(1)}%`;
+      valAnnualSavingRate.className = savingRate >= 0 ? "metric-value text-primary" : "metric-value text-danger";
     }
 
-    if (repLabel) {
-      repLabel.innerText = `${monthNames[state.selectedMonth]} / ${state.selectedYear} (Atual)`;
+    // 3. Renderizar a Tabela de Fluxo de Caixa Anual
+    const tableBody = document.getElementById("reports-annual-table-body");
+    if (tableBody) {
+      let tableHtml = "";
+      monthlyData.forEach(data => {
+        const isCurrentMonth = data.monthIndex === state.selectedMonth && selectedReportYear === state.selectedYear;
+        const rowStyle = isCurrentMonth ? `style="background: rgba(37, 99, 235, 0.08); font-weight: 600;"` : "";
+        const netClass = data.net >= 0 ? "text-success" : "text-danger";
+        const netSign = data.net >= 0 ? "+" : "-";
+
+        tableHtml += `
+          <tr ${rowStyle}>
+            <td>${data.monthName} / ${selectedReportYear} ${isCurrentMonth ? '<span style="font-size: 0.75rem; color: var(--color-primary); margin-left: 0.25rem;">(Atual)</span>' : ''}</td>
+            <td class="text-success">${formatCurrency(data.revenues)}</td>
+            <td class="text-danger">${formatCurrency(data.expenses)}</td>
+            <td class="${netClass}" style="font-weight: 700;">${netSign} ${formatCurrency(Math.abs(data.net))}</td>
+          </tr>
+        `;
+      });
+      tableBody.innerHTML = tableHtml;
     }
 
-    const monthExpenses = getMonthlyExpenses(state.selectedMonth, state.selectedYear);
-    const monthRevenues = state.revenues.filter(r => {
-      const d = new Date(r.date + "T00:00:00");
-      return d.getMonth() === state.selectedMonth && d.getFullYear() === state.selectedYear;
-    });
+    // 4. Renderizar o Gráfico de Barras SVG Comparativo de 12 Meses
+    const chartContainer = document.getElementById("svg-annual-chart-container");
+    if (chartContainer) {
+      // Encontrar maior valor mensal (para definir o topo da escala Y do gráfico de barras)
+      const maxVal = Math.max(...monthlyData.map(d => Math.max(d.revenues, d.expenses)), 1000);
 
-    const totalRevenues = monthRevenues.reduce((sum, r) => sum + r.value, 0);
-    const totalExpenses = monthExpenses.reduce((sum, e) => sum + e.value, 0);
-    const netFlow = totalRevenues - totalExpenses;
+      // Dimensões do SVG
+      const svgWidth = 720;
+      const svgHeight = 220;
+      const paddingLeft = 55;
+      const paddingRight = 20;
+      const paddingTop = 20;
+      const paddingBottom = 30;
 
-    if (repIncome) repIncome.innerText = formatCurrency(totalRevenues);
-    if (repExpense) repExpense.innerText = formatCurrency(totalExpenses);
-    if (repNet) {
-      repNet.innerText = (netFlow >= 0 ? "+ " : "- ") + formatCurrency(Math.abs(netFlow));
-      repNet.className = netFlow >= 0 ? "text-success" : "text-danger";
+      const chartWidth = svgWidth - paddingLeft - paddingRight;
+      const chartHeight = svgHeight - paddingTop - paddingBottom;
+
+      const isDark = document.body.classList.contains("theme-dark") || document.documentElement.getAttribute("data-theme") === "dark";
+      const textThemeColor = isDark ? "#94a3b8" : "#64748b";
+      const gridThemeColor = isDark ? "rgba(55, 65, 81, 0.4)" : "rgba(226, 232, 240, 0.8)";
+
+      // Iniciar a construção do SVG
+      let svgHtml = `
+        <svg viewBox="0 0 ${svgWidth} ${svgHeight}" width="100%" height="100%" style="font-family: inherit;">
+          <!-- Linhas de Grade e Escala Y -->
+      `;
+
+      // 4 linhas de grade
+      for (let i = 0; i <= 4; i++) {
+        const gridVal = (maxVal * i) / 4;
+        const y = paddingTop + chartHeight - (i / 4) * chartHeight;
+        svgHtml += `
+          <line x1="${paddingLeft}" y1="${y}" x2="${svgWidth - paddingRight}" y2="${y}" stroke="${gridThemeColor}" stroke-dasharray="3,3" stroke-width="1" />
+          <text x="${paddingLeft - 8}" y="${y + 4}" fill="${textThemeColor}" font-size="9" text-anchor="end">${formatCurrencyShort(gridVal)}</text>
+        `;
+      }
+
+      // Renderizar as barras dos 12 meses
+      const numMonths = 12;
+      const monthGroupWidth = chartWidth / numMonths;
+      const barWidth = (monthGroupWidth * 0.7) / 2; // Espaço para duas barras (receita e despesa)
+      const gap = monthGroupWidth * 0.15; // Margem nas bordas de cada grupo
+
+      monthlyData.forEach((data, i) => {
+        const groupX = paddingLeft + i * monthGroupWidth;
+        const xRevenues = groupX + gap;
+        const xExpenses = xRevenues + barWidth + 2;
+
+        const hRevenues = (data.revenues / maxVal) * chartHeight;
+        const hExpenses = (data.expenses / maxVal) * chartHeight;
+
+        const yRevenues = paddingTop + chartHeight - hRevenues;
+        const yExpenses = paddingTop + chartHeight - hExpenses;
+
+        // Barra de Receita (Sucesso)
+        const rectRevColor = "var(--color-success, #10b981)";
+        // Barra de Despesa (Vermelho)
+        const rectExpColor = "var(--color-expense, #ef4444)";
+
+        svgHtml += `
+          <!-- Grupo do Mês ${i} -->
+          <g>
+            <!-- Barra Receita -->
+            <rect x="${xRevenues}" y="${yRevenues}" width="${barWidth}" height="${hRevenues}" fill="${rectRevColor}" rx="2" style="transition: opacity 0.2s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
+              <title>${data.monthName}: Receita de ${formatCurrency(data.revenues)}</title>
+            </rect>
+            <!-- Barra Despesa -->
+            <rect x="${xExpenses}" y="${yExpenses}" width="${barWidth}" height="${hExpenses}" fill="${rectExpColor}" rx="2" style="transition: opacity 0.2s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
+              <title>${data.monthName}: Despesa de ${formatCurrency(data.expenses)}</title>
+            </rect>
+            <!-- Rótulo do Mês -->
+            <text x="${groupX + monthGroupWidth / 2}" y="${paddingTop + chartHeight + 16}" fill="${textThemeColor}" font-size="9" text-anchor="middle">
+              ${data.monthName.substring(0, 3)}
+            </text>
+          </g>
+        `;
+      });
+
+      svgHtml += `</svg>`;
+      chartContainer.innerHTML = svgHtml;
     }
+
+    // 5. Renderizar as Categorias de Despesas do Mês Atual (para manter o layout lateral atualizado)
+    renderCategoryReport();
+    
+    // Atualizar título da categoria lateral de acordo com o ano/mês selecionado
+    const catTitle = document.getElementById("rep-categories-title");
+    if (catTitle) {
+      catTitle.innerText = `Despesas por Categoria (${monthNames[state.selectedMonth]}/${state.selectedYear})`;
+    }
+  }
+
+  // Função Auxiliar: Formatar moeda de forma abreviada para o gráfico (ex: 2.5k)
+  function formatCurrencyShort(val) {
+    if (val >= 1000000) {
+      return (val / 1000000).toFixed(1) + "M";
+    }
+    if (val >= 1000) {
+      return (val / 1000).toFixed(1) + "k";
+    }
+    return val.toFixed(0);
+  }
+
+  // Função de exportação para CSV
+  function exportReportToCSV() {
+    const reportYearSelect = document.getElementById("select-report-year");
+    const selectedReportYear = reportYearSelect ? parseInt(reportYearSelect.value) : state.selectedYear;
+    
+    const monthNames = [
+      "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+      "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+    ];
+
+    let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; // Add BOM for Excel compatibility
+    csvContent += "Mês;Receitas;Despesas;Saldo Líquido\r\n";
+
+    for (let m = 0; m < 12; m++) {
+      const monthRevenues = state.revenues.filter(r => {
+        const d = new Date(r.date + "T00:00:00");
+        return d.getMonth() === m && d.getFullYear() === selectedReportYear;
+      });
+      const totalRevenues = monthRevenues.reduce((sum, r) => sum + r.value, 0);
+
+      const monthExpenses = getMonthlyExpenses(m, selectedReportYear);
+      const totalExpenses = monthExpenses.reduce((sum, e) => sum + e.value, 0);
+      const netFlow = totalRevenues - totalExpenses;
+
+      csvContent += `${monthNames[m]} / ${selectedReportYear};${totalRevenues.toFixed(2).replace(".", ",")};${totalExpenses.toFixed(2).replace(".", ",")};${netFlow.toFixed(2).replace(".", ",")}\r\n`;
+    }
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `relatorio_fluxo_caixa_${selectedReportYear}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   }
 
   function renderFinancialInsights() {
@@ -3540,12 +3730,35 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  // Configurar Filtros e Botões da Aba de Relatórios & BI
+  const selectReportYear = document.getElementById("select-report-year");
+  if (selectReportYear) {
+    selectReportYear.addEventListener("change", () => {
+      renderAnnualReport();
+    });
+  }
+
+  const btnExportCSV = document.getElementById("btn-export-csv");
+  if (btnExportCSV) {
+    btnExportCSV.addEventListener("click", () => {
+      exportReportToCSV();
+    });
+  }
+
+  const btnPrintReport = document.getElementById("btn-print-report");
+  if (btnPrintReport) {
+    btnPrintReport.addEventListener("click", () => {
+      window.print();
+    });
+  }
+
   // Escutar redimensionamento da janela para redesenhar o gráfico responsivamente
   let resizeTimer;
   window.addEventListener("resize", () => {
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(() => {
       renderSVGChart();
+      renderAnnualReport();
     }, 150);
   });
 });

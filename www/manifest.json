@@ -1,12 +1,16 @@
 {
   "name": "Finance Manager Premium",
   "short_name": "Finance Manager",
+  "id": "/?source=pwa",
   "description": "Gerenciador Financeiro Premium e Inteligente para controle de gastos, cartões e faturamento.",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#2563eb",
   "orientation": "portrait-primary",
+  "lang": "pt-BR",
+  "dir": "ltr",
+  "categories": ["finance", "business"],
   "icons": [
     {
       "src": "icons/icon-192.png",
@@ -19,6 +23,38 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "icons/screenshot-mobile.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Painel financeiro no celular"
+    },
+    {
+      "src": "icons/screenshot-desktop.png",
+      "sizes": "1920x1080",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Painel financeiro no desktop"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Nova Despesa",
+      "short_name": "Despesa",
+      "description": "Adicionar nova despesa rapidamente",
+      "url": "./index.html#btn-nova-despesa",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Nova Receita",
+      "short_name": "Receita",
+      "description": "Adicionar nova receita rapidamente",
+      "url": "./index.html#btn-nova-receita",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
     }
   ]
 }
