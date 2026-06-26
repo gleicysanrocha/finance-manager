@@ -35,8 +35,30 @@ function initializeFirebaseAdmin() {
 }
 
 export default async function handler(request, response) {
-  // Permitir CORS básico
-  response.setHeader("Access-Control-Allow-Origin", "*");
+  // Permitir CORS restrito a origens seguras e Capacitor (Android/iOS)
+  const allowedOrigins = [
+    "http://localhost:3000",
+    "http://localhost:5000",
+    "http://localhost:5173",
+    "http://localhost:8080",
+    "capacitor://localhost",
+    "http://localhost"
+  ];
+  
+  const origin = request.headers.origin;
+  
+  // Adiciona permissão para subdomínios da Vercel ou localhost
+  if (origin) {
+    const isLocalhost = allowedOrigins.includes(origin);
+    const isVercel = origin.endsWith(".vercel.app") || origin.includes("vercel.app");
+    if (isLocalhost || isVercel) {
+      response.setHeader("Access-Control-Allow-Origin", origin);
+    }
+  } else {
+    // Se não tiver origin
+    response.setHeader("Access-Control-Allow-Origin", "*");
+  }
+  
   response.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   response.setHeader("Access-Control-Allow-Headers", "Content-Type");
 

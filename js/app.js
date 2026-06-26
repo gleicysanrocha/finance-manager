@@ -45,6 +45,12 @@ document.addEventListener("DOMContentLoaded", () => {
       "nav-icon-account": ICONS.account,
       "nav-icon-report": ICONS.report,
       "nav-icon-admin": ICONS.admin,
+      "bottom-icon-budget": ICONS.budget,
+      "bottom-icon-recurring": ICONS.recurring,
+      "bottom-icon-goal": ICONS.goal,
+      "bottom-icon-account": ICONS.account,
+      "bottom-icon-report": ICONS.report,
+      "bottom-icon-admin": ICONS.admin,
       "user-avatar-svg": ICONS.user,
       "auth-logo-svg": ICONS.walletFilled,
       "calendar-icon-svg": ICONS.calendar,
@@ -148,345 +154,8 @@ document.addEventListener("DOMContentLoaded", () => {
   let isCompletingSignup = false;
 
   const DEFAULT_TAGLINE = "Não se trata de quanto você ganha, mas de como você gerencia.";
-
-  // Ícones SVG para status da nuvem (Cloud Sync Icons)
-  const CLOUD_ICONS = {
-    offline: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 20px; height: 20px;"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15a4.5 4.5 0 0 0 4.5 4.5H18a3.75 3.75 0 0 0 1.333-7.258 3.749 3.749 0 0 0-.258-2.628A5.25 5.25 0 0 0 8.877 6.512a5.25 5.25 0 0 0-3.32 4.1A4.5 4.5 0 0 0 2.25 15Z" /></svg>`,
-    syncing: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 20px; height: 20px;" class="syncing"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>`,
-    online: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 20px; height: 20px;"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0 3 3m-3-3-3 3M6.75 19.5a4.5 4.5 0 0 1-1.41-8.775 5.25 5.25 0 0 1 10.233-2.33 3 3 0 0 1 3.758 3.848A3.752 3.752 0 0 1 18 19.5H6.75Z" /></svg>`,
-    error: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 20px; height: 20px;"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" /></svg>`
-  };
-
-  function updateSyncIndicator(status) {
-    const btn = document.getElementById("sync-status-btn");
-    if (!btn) return;
-    
-    btn.className = "control-btn sync-indicator " + status;
-    btn.innerHTML = CLOUD_ICONS[status] || CLOUD_ICONS.offline;
-    
-    if (status === "online") {
-      btn.title = "Sincronizado na Nuvem (Clique para forçar sync)";
-    } else if (status === "syncing") {
-      btn.title = "Sincronizando com a Nuvem...";
-    } else if (status === "error") {
-      btn.title = "Erro na sincronização (Clique para tentar novamente)";
-    } else {
-      btn.title = "Modo Local (Offline) - Clique para conectar";
-    }
-  }
-
-  async function getCloudConfig() {
-    if (window.FIREBASE_CONFIG && window.FIREBASE_CONFIG.apiKey) {
-      return window.FIREBASE_CONFIG;
-    }
-    
-    try {
-      const configScript = await new Promise((resolve) => {
-        const script = document.createElement("script");
-        script.src = "js/config.js";
-        script.onload = () => resolve(window.FIREBASE_CONFIG || null);
-        script.onerror = () => resolve(null);
-        document.head.appendChild(script);
-      });
-      if (configScript && configScript.apiKey) {
-        return configScript;
-      }
-    } catch (e) {
-      console.log("Sem config.js local");
-    }
-
-    try {
-      const res = await fetch("/api/config");
-      if (res.ok) {
-        const data = await res.json();
-        if (data.apiKey) {
-          return data;
-        }
-      }
-    } catch (e) {
-      console.warn("API de configuração não disponível. Rodando no modo local.");
-    }
-    return null;
-  }
-
-  async function initFirebase() {
-    const config = await getCloudConfig();
-    if (!config) {
-      console.log("Firebase não configurado. Continuando no modo local (offline).");
-      updateSyncIndicator("offline");
-      showAuthOverlay();
-      return false;
-    }
-    
-    try {
-      firebase.initializeApp(config);
-      auth = firebase.auth();
-      db = firebase.firestore();
-      isCloudEnabled = true;
-      console.log("Firebase inicializado com sucesso!");
-      
-      auth.onAuthStateChanged(async (user) => {
-        const dropdownLogoutBtn = document.getElementById("dropdown-logout-btn");
-        if (user) {
-          const isNewUser = !currentUser || currentUser.uid !== user.uid;
-          currentUser = user;
-          updateSyncIndicator("online");
-          updateCloudUI(true, currentUser.email);
-          if (dropdownLogoutBtn) {
-            dropdownLogoutBtn.innerHTML = `<span>🚪</span> Sair da Conta`;
-          }
-          if (isNewUser && !isCompletingSignup) {
-            await loadState();
-          }
-          if (!isCompletingSignup) {
-            hideAuthOverlay();
-          }
-        } else {
-          currentUser = null;
-          updateSyncIndicator("offline");
-          updateCloudUI(false, "");
-          if (dropdownLogoutBtn) {
-            dropdownLogoutBtn.innerHTML = `<span>🔑</span> Entrar / Conectar`;
-          }
-          await loadState();
-          showAuthOverlay();
-        }
-      });
-      
-      return true;
-    } catch (err) {
-      console.error("Erro ao inicializar Firebase:", err);
-      updateSyncIndicator("error");
-      showAuthOverlay();
-      return false;
-    }
-  }
-
-  function updateCloudUI(authorized, email) {
-    const unauthorizedDiv = document.getElementById("cloud-info-unauthorized");
-    const authorizedDiv = document.getElementById("cloud-info-authorized");
-    const adminEmail = document.getElementById("admin-cloud-email");
-    
-    if (authorizedDiv && unauthorizedDiv) {
-      if (authorized) {
-        unauthorizedDiv.style.display = "none";
-        authorizedDiv.style.display = "flex";
-        if (adminEmail) adminEmail.innerText = email;
-      } else {
-        unauthorizedDiv.style.display = "flex";
-        authorizedDiv.style.display = "none";
-      }
-    }
-  }
-
-  const authOverlay = document.getElementById("auth-overlay");
-  const authForm = document.getElementById("auth-form");
-  const authNameInput = document.getElementById("auth-name");
-  const authEmailInput = document.getElementById("auth-email");
-  const authPasswordInput = document.getElementById("auth-password");
-  const authPasswordConfirmInput = document.getElementById("auth-password-confirm");
-  const authFeedback = document.getElementById("auth-feedback");
-  const authTitle = document.getElementById("auth-title");
-  const authDescription = document.getElementById("auth-description");
-  const btnAuthSubmit = document.getElementById("btn-auth-submit");
-  const btnAuthForgot = document.getElementById("btn-auth-forgot");
-  const btnAuthModeSignin = document.getElementById("auth-mode-signin");
-  const btnAuthModeSignup = document.getElementById("auth-mode-signup");
-  const btnAuthOffline = document.getElementById("btn-auth-offline");
-  
-  const btnAdminConnect = document.getElementById("btn-admin-connect");
-  const btnAdminDisconnect = document.getElementById("btn-admin-disconnect");
-
-  function showAuthOverlay() {
-    if (authOverlay) {
-      authOverlay.style.display = "flex";
-    }
-  }
-
-  function hideAuthOverlay() {
-    if (authOverlay) {
-      authOverlay.style.display = "none";
-    }
-  }
-
-  function setAuthFeedback(message, type = "error") {
-    if (!authFeedback) return;
-    authFeedback.textContent = message;
-    authFeedback.className = `auth-feedback ${message ? type : ""}`;
-  }
-
-  function setAuthMode(mode) {
-    authMode = mode;
-    const isSignup = mode === "signup";
-    document.querySelectorAll(".auth-signup-field").forEach((field) => {
-      field.hidden = !isSignup;
-    });
-    btnAuthModeSignin?.classList.toggle("active", !isSignup);
-    btnAuthModeSignup?.classList.toggle("active", isSignup);
-    btnAuthModeSignin?.setAttribute("aria-selected", String(!isSignup));
-    btnAuthModeSignup?.setAttribute("aria-selected", String(isSignup));
-    if (authTitle) authTitle.textContent = isSignup ? "Crie sua conta" : "Acesse sua conta";
-    if (authDescription) {
-      authDescription.textContent = isSignup
-        ? "Comece seu controle financeiro e mantenha seus dados sincronizados."
-        : "Entre para acessar seus dados financeiros com segurança.";
-    }
-    if (btnAuthSubmit) btnAuthSubmit.textContent = isSignup ? "Criar minha conta" : "Entrar";
-    if (btnAuthForgot) btnAuthForgot.hidden = isSignup;
-    if (authPasswordInput) authPasswordInput.autocomplete = isSignup ? "new-password" : "current-password";
-    setAuthFeedback("");
-  }
-
-  function getAuthErrorMessage(error) {
-    const messages = {
-      "auth/email-already-in-use": "Este e-mail já possui uma conta.",
-      "auth/invalid-email": "Digite um e-mail válido.",
-      "auth/invalid-credential": "E-mail ou senha incorretos.",
-      "auth/user-not-found": "E-mail ou senha incorretos.",
-      "auth/wrong-password": "E-mail ou senha incorretos.",
-      "auth/weak-password": "Use uma senha com pelo menos 6 caracteres.",
-      "auth/operation-not-allowed": "O cadastro por e-mail precisa ser habilitado no Firebase.",
-      "auth/too-many-requests": "Muitas tentativas. Aguarde alguns minutos e tente novamente.",
-      "auth/network-request-failed": "Não foi possível conectar. Verifique sua internet."
-    };
-    return messages[error?.code] || "Não foi possível concluir. Tente novamente.";
-  }
-
-  function resetStateForNewUser(name) {
-    state.cards = [];
-    state.expenses = [];
-    state.revenues = [];
-    state.orders = [];
-    state.accounts = [];
-    state.recurring = [];
-    state.goals = [];
-    state.userName = name;
-    state.tagline = DEFAULT_TAGLINE;
-    state.selectedCardId = "";
-    updateProfileUI();
-  }
-
-  btnAuthModeSignin?.addEventListener("click", () => setAuthMode("signin"));
-  btnAuthModeSignup?.addEventListener("click", () => setAuthMode("signup"));
-
-  if (btnAuthOffline) {
-    btnAuthOffline.addEventListener("click", () => {
-      hideAuthOverlay();
-      updateSyncIndicator("offline");
-      updateCloudUI(false, "");
-    });
-  }
-
-  if (btnAdminConnect) {
-    btnAdminConnect.addEventListener("click", () => {
-      showAuthOverlay();
-    });
-  }
-
-  if (btnAdminDisconnect) {
-    btnAdminDisconnect.addEventListener("click", async () => {
-      if (confirm("Deseja realmente desconectar e voltar ao Modo Local (Offline)?")) {
-        if (auth) {
-          await auth.signOut();
-          updateCloudUI(false, "");
-          updateSyncIndicator("offline");
-          alert("Desconectado com sucesso! O sistema voltou ao Modo Local.");
-          location.reload();
-        }
-      }
-    });
-  }
-
-  if (authForm) {
-    authForm.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const email = authEmailInput.value.trim();
-      const password = authPasswordInput.value;
-      const name = authNameInput?.value.trim() || "";
-      if (!email || !password) {
-        setAuthFeedback("Preencha o e-mail e a senha.");
-        return;
-      }
-
-      if (!auth) {
-        setAuthFeedback("O serviço de acesso ainda não está disponível.");
-        return;
-      }
-
-      if (authMode === "signup") {
-        if (!name) {
-          setAuthFeedback("Digite seu nome.");
-          return;
-        }
-        if (password.length < 6) {
-          setAuthFeedback("A senha precisa ter pelo menos 6 caracteres.");
-          return;
-        }
-        if (password !== authPasswordConfirmInput?.value) {
-          setAuthFeedback("As senhas não coincidem.");
-          return;
-        }
-      }
-
-      btnAuthSubmit.disabled = true;
-      btnAuthSubmit.textContent = authMode === "signup" ? "Criando conta..." : "Entrando...";
-      setAuthFeedback("");
-      try {
-        if (authMode === "signup") {
-          isCompletingSignup = true;
-          const userCredential = await auth.createUserWithEmailAndPassword(email, password);
-          currentUser = userCredential.user;
-          await currentUser.updateProfile({ displayName: name });
-          resetStateForNewUser(name);
-          await saveState();
-        } else {
-          const userCredential = await auth.signInWithEmailAndPassword(email, password);
-          currentUser = userCredential.user;
-        }
-        updateSyncIndicator("online");
-        updateCloudUI(true, currentUser.email);
-        hideAuthOverlay();
-      } catch (err) {
-        setAuthFeedback(getAuthErrorMessage(err));
-      } finally {
-        isCompletingSignup = false;
-        btnAuthSubmit.disabled = false;
-        btnAuthSubmit.textContent = authMode === "signup" ? "Criar minha conta" : "Entrar";
-      }
-    });
-  }
-
-  btnAuthForgot?.addEventListener("click", async () => {
-    const email = authEmailInput?.value.trim();
-    if (!email) {
-      setAuthFeedback("Digite seu e-mail para receber o link de recuperação.");
-      authEmailInput?.focus();
-      return;
-    }
-    try {
-      await auth.sendPasswordResetEmail(email);
-      setAuthFeedback("Enviamos um link de recuperação para seu e-mail.", "success");
-    } catch (err) {
-      setAuthFeedback(getAuthErrorMessage(err));
-    }
-  });
-
-  const syncStatusBtn = document.getElementById("sync-status-btn");
-  if (syncStatusBtn) {
-    syncStatusBtn.addEventListener("click", () => {
-      if (isCloudEnabled) {
-        if (!currentUser) {
-          showAuthOverlay();
-        } else {
-          saveState().then(() => {
-            alert("Dados sincronizados com sucesso na nuvem!");
-          });
-        }
-      } else {
-        alert("Banco de dados não configurado nas variáveis de ambiente. Rodando no Modo Local.");
-      }
-    });
-  }
+  // Nota: A configuração do Firebase, Cloud Icons e Lógica de Autenticação
+  // foi movida para os arquivos js/firebase-config.js e js/auth-logic.js.
 
   function getLocalStorageKey(suffix) {
     const owner = currentUser?.uid || "offline";
@@ -625,7 +294,7 @@ document.addEventListener("DOMContentLoaded", () => {
             state.recurring,
             state.goals
           ].some((items) => items.length > 0);
-          if (hasLocalData && confirm("Deseja enviar os dados deste dispositivo para esta conta?")) {
+          if (hasLocalData && await window.customConfirm("Deseja enviar os dados deste dispositivo para esta conta?")) {
             await saveState();
           } else {
             resetStateForNewUser(currentUser.displayName || "Usuário");
@@ -648,21 +317,21 @@ document.addEventListener("DOMContentLoaded", () => {
     // Verificar retornos de checkout (Stripe ou Mock)
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get("upgrade") === "success") {
-      alert("Parabéns! Sua assinatura Premium foi processada. Suas funcionalidades avançadas já estão liberadas! 🚀");
+      await window.customAlert("Parabéns! Sua assinatura Premium foi processada. Suas funcionalidades avançadas já estão liberadas! 🚀");
       window.history.replaceState({}, document.title, window.location.pathname);
     } else if (urlParams.get("upgrade") === "cancel") {
-      alert("A assinatura foi cancelada. Você pode tentar novamente a qualquer momento!");
+      await window.customAlert("A assinatura foi cancelada. Você pode tentar novamente a qualquer momento!");
       window.history.replaceState({}, document.title, window.location.pathname);
     } else if (urlParams.get("mock_checkout") === "true") {
       const mockUserId = urlParams.get("userId");
       if (currentUser && currentUser.uid === mockUserId) {
         state.tier = "premium";
         await saveState();
-        alert("Checkout de Simulação concluído com sucesso! Plano Premium ativo na conta. 🚀");
+        await window.customAlert("Checkout de Simulação concluído com sucesso! Plano Premium ativo na conta. 🚀");
       } else if (!currentUser) {
         state.tier = "premium";
         localStorage.setItem(getLocalStorageKey("tier"), "premium");
-        alert("Checkout de Simulação concluído! Plano Premium ativo localmente. 🚀");
+        await window.customAlert("Checkout de Simulação concluído! Plano Premium ativo localmente. 🚀");
       }
       window.history.replaceState({}, document.title, window.location.pathname);
       updateTierUI();
@@ -716,6 +385,27 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
   }
+
+  function resetStateForNewUser(name) {
+    state.cards = [];
+    state.expenses = [];
+    state.revenues = [];
+    state.orders = [];
+    state.accounts = [];
+    state.recurring = [];
+    state.goals = [];
+    state.userName = name;
+    state.tagline = DEFAULT_TAGLINE;
+    state.selectedCardId = "";
+    updateProfileUI();
+  }
+
+  // Expor funções e estado para integração com Firebase Config e Auth Logic
+  window.loadState = loadState;
+  window.saveState = saveState;
+  window.resetStateForNewUser = resetStateForNewUser;
+  window.updateAllDashboard = updateAllDashboard;
+  window.appState = state;
 
   // Alternador de tema Light/Dark
   const themeBtn = document.getElementById("theme-toggle-btn");
@@ -1338,12 +1028,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Listener para excluir cartão
     if (delBtn) {
-      delBtn.addEventListener("click", (e) => {
+      delBtn.addEventListener("click", async (e) => {
         e.stopPropagation();
         const cardId = delBtn.getAttribute("data-id");
         const cardName = state.cards.find(c => c.id === cardId)?.name || "este cartão";
 
-        if (confirm(`Tem certeza que deseja excluir o cartão "${cardName}"?\nAs despesas vinculadas a este cartão continuarão registradas, mas passarão para "Sem cartão associado".`)) {
+        if (await window.customConfirm(`Tem certeza que deseja excluir o cartão "${cardName}"?\nAs despesas vinculadas a este cartão continuarão registradas, mas passarão para "Sem cartão associado".`)) {
           // Desvincular despesas
           state.expenses.forEach(exp => {
             if (exp.cardId === cardId) {
@@ -1400,11 +1090,14 @@ document.addEventListener("DOMContentLoaded", () => {
               <span style="font-size: 0.65rem; font-weight: 800; letter-spacing: 1px; opacity: 0.85;">${acc.type.toUpperCase()}</span>
               <h4 style="font-size: 1.2rem; font-weight: 700; margin-top: 0.1rem;">${acc.name}</h4>
             </div>
-            <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <button class="edit-account-btn" data-id="${acc.id}" title="Editar esta conta" style="background: rgba(255, 255, 255, 0.15); border: none; border-radius: 6px; color: rgba(255, 255, 255, 0.85); cursor: pointer; display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0.35rem; transition: var(--transition-fast);">
+                ${ICONS.edit}
+              </button>
               <button class="delete-account-btn" data-id="${acc.id}" title="Excluir esta conta" style="background: rgba(255, 255, 255, 0.15); border: none; border-radius: 6px; color: rgba(255, 255, 255, 0.85); cursor: pointer; display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0.35rem; transition: var(--transition-fast);">
                 ${ICONS.trash}
               </button>
-              <span style="font-size: 1.35rem; font-weight: 800;">${acc.logo}</span>
+              <span style="font-size: 1.35rem; font-weight: 800; margin-left: 0.25rem;">${acc.logo}</span>
             </div>
           </div>
           <div>
@@ -1423,13 +1116,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Adicionar eventos para excluir conta
     container.querySelectorAll(".delete-account-btn").forEach(btn => {
-      btn.addEventListener("click", (e) => {
+      btn.addEventListener("click", async (e) => {
         e.stopPropagation();
         const id = btn.getAttribute("data-id");
         const account = state.accounts.find(a => a.id === id);
         const accountName = account ? account.name : "esta conta";
 
-        if (confirm(`Tem certeza que deseja excluir a conta "${accountName}"?`)) {
+        if (await window.customConfirm(`Tem certeza que deseja excluir a conta "${accountName}"?`)) {
           const card = document.getElementById(`acc-card-${id}`);
           if (card) {
             card.style.opacity = "0";
@@ -1444,6 +1137,30 @@ document.addEventListener("DOMContentLoaded", () => {
             saveState();
             updateAllDashboard();
           }
+        }
+      });
+    });
+
+    // Adicionar eventos para editar conta
+    container.querySelectorAll(".edit-account-btn").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const id = btn.getAttribute("data-id");
+        const account = state.accounts.find(a => a.id === id);
+        if (account) {
+          document.getElementById("acc-id").value = account.id;
+          document.getElementById("acc-name").value = account.name;
+          document.getElementById("acc-type").value = account.type;
+          document.getElementById("acc-logo").value = account.logo;
+          document.getElementById("acc-balance").value = account.balance;
+          document.getElementById("acc-agency").value = account.agency;
+          document.getElementById("acc-number").value = account.accountNumber;
+          document.getElementById("acc-color").value = account.color;
+
+          document.getElementById("modal-conta-title").innerText = "Editar Conta Bancária";
+
+          const modal = document.getElementById("modal-conta-dialog");
+          if (modal) modal.showModal();
         }
       });
     });
@@ -1690,13 +1407,13 @@ document.addEventListener("DOMContentLoaded", () => {
   function attachGoalEventListeners() {
     // Excluir Objetivo
     document.querySelectorAll("#goals-container .goal-action-btn.delete").forEach(btn => {
-      btn.addEventListener("click", (e) => {
+      btn.addEventListener("click", async (e) => {
         e.stopPropagation();
         const id = btn.getAttribute("data-id");
         const goal = state.goals.find(g => g.id === id);
         const goalName = goal ? goal.name : "este objetivo";
 
-        if (confirm(`Tem certeza que deseja excluir o objetivo "${goalName}"?`)) {
+        if (await window.customConfirm(`Tem certeza que deseja excluir o objetivo "${goalName}"?`)) {
           const card = document.getElementById(`goal-card-${id}`);
           if (card) {
             card.style.opacity = "0";
@@ -2201,14 +1918,14 @@ document.addEventListener("DOMContentLoaded", () => {
     if (type === "expenses") {
       // Excluir despesa
       document.querySelectorAll("#tbody-despesas .table-action-btn.delete").forEach(btn => {
-        btn.addEventListener("click", (e) => {
+        btn.addEventListener("click", async (e) => {
           const id = btn.getAttribute("data-id");
           const row = document.getElementById(`row-exp-${id}`);
           
           if (id.startsWith("virtual-rec-")) {
             const recItem = state.recurring.find(r => id.includes(`virtual-rec-${r.id}-`));
             if (recItem) {
-              if (confirm(`Deseja excluir a despesa recorrente "${recItem.description}" permanentemente de todos os meses?`)) {
+              if (await window.customConfirm(`Deseja excluir a despesa recorrente "${recItem.description}" permanentemente de todos os meses?`)) {
                 if (row) {
                   row.style.opacity = "0";
                   row.style.transform = "translateX(20px)";
@@ -2233,7 +1950,7 @@ document.addEventListener("DOMContentLoaded", () => {
           if (expense && expense.parentRecurringId) {
             const recItem = state.recurring.find(r => r.id === expense.parentRecurringId);
             const recName = recItem ? recItem.description : "despesa recorrente";
-            if (confirm(`Esta despesa faz parte da recorrente "${recName}".\nDeseja excluir a recorrente permanentemente de todos os meses? (Se escolher Cancelar, excluirá apenas esta ocorrência de ${formatDateBR(expense.date)})`)) {
+            if (await window.customConfirm(`Esta despesa faz parte da recorrente "${recName}".\nDeseja excluir a recorrente permanentemente de todos os meses? (Se escolher Cancelar, excluirá apenas esta ocorrência de ${formatDateBR(expense.date)})`)) {
               if (row) {
                 row.style.opacity = "0";
                 row.style.transform = "translateX(20px)";
@@ -2395,12 +2112,12 @@ document.addEventListener("DOMContentLoaded", () => {
     } else if (type === "recurring") {
       // Excluir Recorrente
       document.querySelectorAll("#tbody-recorrentes .table-action-btn.delete").forEach(btn => {
-        btn.addEventListener("click", (e) => {
+        btn.addEventListener("click", async (e) => {
           const id = btn.getAttribute("data-id");
           const row = document.getElementById(`row-rec-${id}`);
           const recName = state.recurring.find(r => r.id === id)?.description || "esta despesa recorrente";
           
-          if (confirm(`Tem certeza que deseja excluir a despesa recorrente "${recName}"?`)) {
+          if (await window.customConfirm(`Tem certeza que deseja excluir a despesa recorrente "${recName}"?`)) {
             if (row) {
               row.style.opacity = "0";
               row.style.transform = "translateX(20px)";
@@ -2595,46 +2312,90 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Selecionar todos os links de navegação e todas as views
   const navItems = document.querySelectorAll(".main-nav .nav-item");
+  const bottomNavItems = document.querySelectorAll(".bottom-nav-item");
   const allTabViews = document.querySelectorAll(".tab-view");
+
+  function handleTabSwitch(targetTab) {
+    // Impedir acesso à aba administrador por não-admins
+    if (targetTab === "administrador" && !(window.isAdminUser && window.isAdminUser())) {
+      handleTabSwitch("dashboard");
+      return;
+    }
+
+    const targetView = document.getElementById("view-" + targetTab);
+    if (!targetView) return;
+
+    // 1. Sincronizar classes de ativo na barra superior
+    navItems.forEach(item => {
+      if (item.getAttribute("data-tab") === targetTab) {
+        item.classList.add("active");
+      } else {
+        item.classList.remove("active");
+      }
+    });
+
+    // 2. Sincronizar classes de ativo na barra inferior
+    bottomNavItems.forEach(item => {
+      if (item.getAttribute("data-tab") === targetTab) {
+        item.classList.add("active");
+      } else {
+        item.classList.remove("active");
+      }
+    });
+
+    // 3. Esconder todas as views
+    allTabViews.forEach(view => {
+      view.classList.remove("active");
+      view.style.display = "none";
+    });
+
+    // 4. Mostrar a view correspondente com animação
+    targetView.style.display = "block";
+    targetView.offsetHeight;
+    targetView.classList.add("active");
+
+    // 5. Se voltou para o Dashboard, atualizar os dados
+    if (targetTab === "dashboard") {
+      updateAllDashboard();
+    }
+  }
+
+  // Expor globalmente para controle de redirecionamento de abas
+  window.handleTabSwitch = handleTabSwitch;
 
   navItems.forEach(navLink => {
     navLink.addEventListener("click", (e) => {
-      e.preventDefault(); // Impedir o comportamento padrão do link
-
+      e.preventDefault();
       const targetTab = navLink.getAttribute("data-tab");
 
-      // Bloquear aba de relatórios no Plano Grátis
       if (targetTab === "relatorios" && state.tier !== "premium") {
         showUpgradeModal("A aba de Relatórios & BI está bloqueada no Plano Gratuito! Faça o upgrade para o Plano Premium para liberar relatórios consolidados e BI.");
         return;
       }
 
-      const targetView = document.getElementById("view-" + targetTab);
-
-      if (!targetView) return; // Segurança: se a view não existir, não faz nada
-
-      // 1. Remover classe 'active' de todos os links de navegação
-      navItems.forEach(item => item.classList.remove("active"));
-
-      // 2. Adicionar classe 'active' ao link clicado
-      navLink.classList.add("active");
-
-      // 3. Esconder todas as views
-      allTabViews.forEach(view => {
-        view.classList.remove("active");
-        view.style.display = "none";
-      });
-
-      // 4. Mostrar a view correspondente com animação
-      targetView.style.display = "block";
-      // Forçar o reflow para a animação funcionar
-      targetView.offsetHeight;
-      targetView.classList.add("active");
-
-      // 5. Se voltou para o Dashboard, atualizar os dados
-      if (targetTab === "dashboard") {
-        updateAllDashboard();
+      if (targetTab === "administrador" && !(window.isAdminUser && window.isAdminUser())) {
+        return;
       }
+
+      handleTabSwitch(targetTab);
+    });
+  });
+
+  bottomNavItems.forEach(navLink => {
+    navLink.addEventListener("click", (e) => {
+      e.preventDefault();
+      const targetTab = navLink.getAttribute("data-tab");
+
+      if (targetTab === "relatorios" && state.tier !== "premium") {
+        showUpgradeModal("A aba de Relatórios & BI está bloqueada no Plano Gratuito! Faça o upgrade para o Plano Premium para liberar relatórios consolidados e BI.");
+        return;
+      }
+
+      if (targetTab === "administrador" && !(window.isAdminUser && window.isAdminUser())) {
+        return;
+      }
+
+      handleTabSwitch(targetTab);
     });
   });
 
@@ -2707,6 +2468,13 @@ document.addEventListener("DOMContentLoaded", () => {
           showUpgradeModal("Limite do Plano Gratuito atingido! No plano gratuito você pode cadastrar até 10 lançamentos (despesas/receitas/OS) por mês.");
           return;
         }
+      }
+
+      if (formId === "form-nova-conta") {
+        const idField = document.getElementById("acc-id");
+        if (idField) idField.value = "";
+        const titleField = document.getElementById("modal-conta-title");
+        if (titleField) titleField.innerText = "Vincular Nova Conta";
       }
 
       // Definir data de hoje por padrão nos inputs correspondentes
@@ -3127,13 +2895,14 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // 5. Cadastrar Nova Conta Bancária
+  // 5. Cadastrar/Editar Conta Bancária
   const formConta = document.getElementById("form-nova-conta");
   if (formConta) {
     formConta.addEventListener("submit", (e) => {
       e.preventDefault();
 
-      if (state.tier !== "premium" && state.accounts.length >= 1) {
+      const id = document.getElementById("acc-id").value;
+      if (!id && state.tier !== "premium" && state.accounts.length >= 1) {
         showUpgradeModal("Limite do Plano Gratuito atingido! No plano gratuito você pode cadastrar apenas 1 conta bancária.");
         return;
       }
@@ -3155,19 +2924,33 @@ document.addEventListener("DOMContentLoaded", () => {
       else if (color.includes("#334155")) shadow = "rgba(51, 65, 85, 0.2)";
       else if (color.includes("#f43f5e")) shadow = "rgba(244, 63, 94, 0.2)";
 
-      const newAccount = {
-        id: "acc-" + Date.now(),
-        name,
-        type,
-        logo,
-        balance,
-        agency,
-        accountNumber,
-        color,
-        shadow
-      };
+      if (id) {
+        const acc = state.accounts.find(a => a.id === id);
+        if (acc) {
+          acc.name = name;
+          acc.type = type;
+          acc.logo = logo;
+          acc.balance = balance;
+          acc.agency = agency;
+          acc.accountNumber = accountNumber;
+          acc.color = color;
+          acc.shadow = shadow;
+        }
+      } else {
+        const newAccount = {
+          id: "acc-" + Date.now(),
+          name,
+          type,
+          logo,
+          balance,
+          agency,
+          accountNumber,
+          color,
+          shadow
+        };
+        state.accounts.push(newAccount);
+      }
 
-      state.accounts.push(newAccount);
       saveState();
       updateAllDashboard();
 
@@ -3179,7 +2962,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // 6. Cadastrar/Editar Despesa Recorrente
   const formRecorrente = document.getElementById("form-novo-recorrente");
   if (formRecorrente) {
-    formRecorrente.addEventListener("submit", (e) => {
+    formRecorrente.addEventListener("submit", async (e) => {
       e.preventDefault();
 
       const id = document.getElementById("rec-id").value;
@@ -3192,7 +2975,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const category = document.getElementById("rec-category").value;
 
       if (endDate && endDate < date) {
-        alert("A data de término precisa ser igual ou posterior ao primeiro vencimento.");
+        await window.customAlert("A data de término precisa ser igual ou posterior ao primeiro vencimento.");
         return;
       }
 
@@ -3291,7 +3074,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // 1. Salvar Perfil
   const formAdminProfile = document.getElementById("form-admin-profile");
   if (formAdminProfile) {
-    formAdminProfile.addEventListener("submit", (e) => {
+    formAdminProfile.addEventListener("submit", async (e) => {
       e.preventDefault();
       
       const newName = document.getElementById("admin-user-name").value.trim();
@@ -3306,7 +3089,7 @@ document.addEventListener("DOMContentLoaded", () => {
       
       saveState();
       updateProfileUI();
-      alert("Configurações do perfil salvas com sucesso!");
+      await window.customAlert("Configurações do perfil salvas com sucesso!");
     });
   }
 
@@ -3319,11 +3102,11 @@ document.addEventListener("DOMContentLoaded", () => {
         ? "Deseja ativar o Plano Premium para esta conta?"
         : "Deseja reverter esta conta para o Plano Gratuito?";
         
-      if (confirm(confirmMsg)) {
+      if (await window.customConfirm(confirmMsg)) {
         state.tier = nextTier;
         await saveState();
         updateTierUI();
-        alert(`Plano atualizado com sucesso para ${nextTier === "premium" ? "Premium" : "Gratuito"}!`);
+        await window.customAlert(`Plano atualizado com sucesso para ${nextTier === "premium" ? "Premium" : "Gratuito"}!`);
       }
     });
   }
@@ -3340,7 +3123,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const btnSubmit = document.getElementById("btn-submit-manage-user");
 
       if (!email || !tier || !adminSecret) {
-        alert("Todos os campos do formulário são obrigatórios.");
+        await window.customAlert("Todos os campos do formulário são obrigatórios.");
         return;
       }
 
@@ -3359,14 +3142,14 @@ document.addEventListener("DOMContentLoaded", () => {
         const data = await response.json();
 
         if (response.ok) {
-          alert(data.message || `Usuário ${email} atualizado com sucesso!`);
+          await window.customAlert(data.message || `Usuário ${email} atualizado com sucesso!`);
           formAdminManageUser.reset();
         } else {
-          alert(`Erro: ${data.error || "Não foi possível concluir a ação."}`);
+          await window.customAlert(`Erro: ${data.error || "Não foi possível concluir a ação."}`);
         }
       } catch (err) {
         console.error("Erro ao gerenciar usuário:", err);
-        alert("Erro de conexão ao tentar atualizar o plano do usuário.");
+        await window.customAlert("Erro de conexão ao tentar atualizar o plano do usuário.");
       } finally {
         btnSubmit.disabled = false;
         btnSubmit.textContent = "Atualizar Plano do Usuário 🚀";
@@ -3392,7 +3175,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const btnResetDb = document.getElementById("btn-reset-db");
   if (btnResetDb) {
     btnResetDb.addEventListener("click", async () => {
-      if (confirm("Tem certeza que deseja restaurar o banco de dados? Todos os seus dados cadastrados serão perdidos!")) {
+      if (await window.customConfirm("Tem certeza que deseja restaurar o banco de dados? Todos os seus dados cadastrados serão perdidos!")) {
         if (isCloudEnabled && currentUser) {
           try {
             const docRef = db.collection("financial_data").doc(currentUser.uid);
@@ -3431,7 +3214,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (dropdownResetBtn) {
     dropdownResetBtn.addEventListener("click", async (e) => {
       e.preventDefault();
-      if (confirm("Tem certeza que deseja restaurar a ferramenta? Todos os seus dados cadastrados (offline e online) serão apagados permanentemente!")) {
+      if (await window.customConfirm("Tem certeza que deseja restaurar a ferramenta? Todos os seus dados cadastrados (offline e online) serão apagados permanentemente!")) {
         if (isCloudEnabled && currentUser) {
           try {
             const docRef = db.collection("financial_data").doc(currentUser.uid);
@@ -3446,25 +3229,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  if (dropdownLogoutBtn) {
-    dropdownLogoutBtn.addEventListener("click", async (e) => {
-      e.preventDefault();
-      if (currentUser) {
-        if (confirm("Deseja realmente desconectar e voltar ao Modo Local (Offline)?")) {
-          if (auth) {
-            await auth.signOut();
-            updateCloudUI(false, "");
-            updateSyncIndicator("offline");
-            alert("Desconectado com sucesso!");
-            location.reload();
-          }
-        }
-      } else {
-        showAuthOverlay();
-        profileDropdown.classList.remove("active");
-      }
-    });
-  }
 
   // ==========================================================================
   // 11b. MONETIZAÇÃO SAAS (FREE / PREMIUM & STRIPE INTEGRATION)
@@ -3586,8 +3350,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (btnSubscribeNow) {
     btnSubscribeNow.addEventListener("click", async () => {
+      // Se for app nativo, bloquear compra local e instruir o usuário
+      if (window.isNativeApp && window.isNativeApp()) {
+        await window.customAlert("As assinaturas Premium só podem ser adquiridas pelo site oficial do Finance Manager. Seus dados e status premium serão sincronizados automaticamente no aplicativo nativo após a compra!", "Compra indisponível no App Nativo");
+        return;
+      }
+
       if (!currentUser) {
-        alert("Para assinar o plano Premium e sincronizar seus dados, você precisa criar uma conta gratuita (ou fazer login) primeiro.");
+        await window.customAlert("Para assinar o plano Premium e sincronizar seus dados, você precisa criar uma conta gratuita (ou fazer login) primeiro.");
         if (modalUpgrade) modalUpgrade.close();
         showAuthOverlay();
         setAuthMode("signup");
@@ -3611,14 +3381,14 @@ document.addEventListener("DOMContentLoaded", () => {
           if (data.url) {
             window.location.href = data.url;
           } else {
-            alert("Erro ao gerar sessão de pagamento. Tente novamente.");
+            await window.customAlert("Erro ao gerar sessão de pagamento. Tente novamente.");
           }
         } else {
-          alert("Erro de comunicação com o servidor de pagamento.");
+          await window.customAlert("Erro de comunicação com o servidor de pagamento.");
         }
       } catch (err) {
         console.error("Erro no checkout:", err);
-        alert("Erro ao conectar com o serviço de assinaturas.");
+        await window.customAlert("Erro ao conectar com o serviço de assinaturas.");
       } finally {
         btnSubscribeNow.disabled = false;
         btnSubscribeNow.textContent = "Assinar Premium Agora 🚀";

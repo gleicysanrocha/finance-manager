@@ -56,19 +56,28 @@ export default async function handler(request, response) {
   // Obter o corpo bruto (necessário para assinatura do Stripe)
   // Nota: Vercel já parseia o body como JSON por padrão se for JSON.
   // Para fins do webhook, em testes/desenvolvimento ou se não houver signature secret, podemos ler direto do body.
+  const isProduction = process.env.NODE_ENV === "production";
+
   if (webhookSecret && sig) {
     try {
       // No Vercel Serverless, para ler o raw body, às vezes requer configurações adicionais.
-      // Se der erro de assinatura, permitimos fallback se estiver em modo teste ou usando corpo parseado direto.
+      // Se der erro de assinatura, permitimos fallback apenas em desenvolvimento local.
       const rawBody = request.body instanceof Buffer ? request.body : JSON.stringify(request.body);
       event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
     } catch (err) {
       console.error(`Erro na verificação da assinatura do Webhook: ${err.message}`);
-      // Fallback em caso de erro na assinatura no Vercel (se estivermos em ambiente de homologação ou teste)
+      if (isProduction) {
+        return response.status(400).json({ error: `Falha na verificação de assinatura do Webhook: ${err.message}` });
+      }
+      // Fallback permitido apenas em desenvolvimento/testes locais
       event = request.body;
     }
   } else {
-    // Se não tiver webhook secret, processamos o evento sem verificação de assinatura (útil para desenvolvimento)
+    // Em produção, a chave e a assinatura são obrigatórias
+    if (isProduction) {
+      return response.status(400).json({ error: "Assinatura do Stripe Webhook ausente ou mal configurada." });
+    }
+    // Se não tiver webhook secret em desenvolvimento, processamos o evento sem verificação
     event = request.body;
   }
 

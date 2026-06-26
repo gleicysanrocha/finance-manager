@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Finance Manager - Gerenciador Financeiro Premium e Inteligente para controle de gastos, cartões de crédito e faturamento.">
   <title>Finance Manager - Gerenciador Financeiro Premium</title>
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Finance Manager - Gerenciador Financeiro Premium e Inteligente para controle de gastos, cartões de crédito e faturamento.">
+  <title>Finance Manager - Gerenciador Financeiro Premium</title>
   
   <!-- Fontes do Google: Outfit para um design moderno e elegante -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -13,6 +20,11 @@
   
   <!-- Estilos CSS Customizados -->
   <link rel="stylesheet" href="css/style.css">
+
+  <!-- Configurações PWA -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#4f46e5">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
 </head>
 <body class="theme-light">
   
@@ -43,7 +55,7 @@
           <li><a href="#" class="nav-item" data-tab="metas"><span class="nav-icon" id="nav-icon-goal"></span>Metas</a></li>
           <li><a href="#" class="nav-item" data-tab="contas"><span class="nav-icon" id="nav-icon-account"></span>Contas</a></li>
           <li><a href="#" class="nav-item" data-tab="relatorios"><span class="nav-icon" id="nav-icon-report"></span>Relatórios</a></li>
-          <li><a href="#" class="nav-item" data-tab="administrador"><span class="nav-icon" id="nav-icon-admin"></span>Administrador</a></li>
+          <li id="main-nav-admin" style="display: none;"><a href="#" class="nav-item" data-tab="administrador"><span class="nav-icon" id="nav-icon-admin"></span>Administrador</a></li>
         </ul>
       </nav>
 
@@ -958,10 +970,11 @@
   <dialog class="premium-modal glass-effect" id="modal-conta-dialog">
     <div class="modal-content">
       <header class="modal-header">
-        <h3>Vincular Nova Conta</h3>
+        <h3 id="modal-conta-title">Vincular Nova Conta</h3>
         <button class="modal-close-btn" id="close-modal-conta" aria-label="Fechar">&times;</button>
       </header>
       <form id="form-nova-conta" method="dialog">
+        <input type="hidden" id="acc-id">
         <div class="form-row">
           <div class="form-group">
             <label for="acc-name">Nome do Banco / Conta</label>
@@ -1267,12 +1280,56 @@
     </div>
   </div>
 
+  <!-- BARRA DE NAVEGAÇÃO INFERIOR PARA MOBILE -->
+  <nav class="bottom-nav">
+    <ul class="bottom-nav-list">
+      <li>
+        <a href="#" class="bottom-nav-item active" data-tab="dashboard">
+          <span class="bottom-nav-icon" id="bottom-icon-budget"></span>
+          <span>Orçamentos</span>
+        </a>
+      </li>
+      <li>
+        <a href="#" class="bottom-nav-item" data-tab="recorrentes">
+          <span class="bottom-nav-icon" id="bottom-icon-recurring"></span>
+          <span>Recorrentes</span>
+        </a>
+      </li>
+      <li>
+        <a href="#" class="bottom-nav-item" data-tab="metas">
+          <span class="bottom-nav-icon" id="bottom-icon-goal"></span>
+          <span>Metas</span>
+        </a>
+      </li>
+      <li>
+        <a href="#" class="bottom-nav-item" data-tab="contas">
+          <span class="bottom-nav-icon" id="bottom-icon-account"></span>
+          <span>Contas</span>
+        </a>
+      </li>
+      <li>
+        <a href="#" class="bottom-nav-item" data-tab="relatorios">
+          <span class="bottom-nav-icon" id="bottom-icon-report"></span>
+          <span>Relatórios</span>
+        </a>
+      </li>
+      <li id="bottom-nav-admin" style="display: none;">
+        <a href="#" class="bottom-nav-item" data-tab="administrador">
+          <span class="bottom-nav-icon" id="bottom-icon-admin"></span>
+          <span>Admin</span>
+        </a>
+      </li>
+    </ul>
+  </nav>
   <!-- SCRIPTS DO APLICATIVO -->
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
   <script src="js/icons.js"></script>
   <script src="js/data.js"></script>
+  <script src="js/firebase-config.js"></script>
+  <script src="js/ui-helpers.js"></script>
+  <script src="js/auth-logic.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>
