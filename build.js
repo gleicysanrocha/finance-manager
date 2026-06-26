@@ -37,7 +37,7 @@ try {
   });
 
   // Copy directories
-  const dirsToCopy = ['js', 'css', 'icons'];
+  const dirsToCopy = ['js', 'css', 'icons', '.well-known'];
   dirsToCopy.forEach(dir => {
     if (fs.existsSync(dir)) {
       copyRecursiveSync(dir, path.join('www', dir));
