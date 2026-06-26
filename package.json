@@ -4,7 +4,7 @@
   "description": "Gerenciador financeiro premium e inteligente",
   "main": "index.html",
   "scripts": {
-    "build": "powershell -Command \"Remove-Item -Recurse -Force www -ErrorAction SilentlyContinue; New-Item -ItemType Directory -Path www -Force; Copy-Item index.html, manifest.json, sw.js www -Force; Copy-Item -Recurse js, css, icons www -Force\""
+    "build": "node build.js"
   },
   "dependencies": {
     "@capacitor/android": "^8.4.1",
