@@ -3339,17 +3339,8 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // 4. Atalho de Perfil para a aba Minha Conta
-  const profileMenuBtn = document.getElementById("profile-menu-btn");
   const dropdownResetBtn = document.getElementById("dropdown-reset-btn");
   const dropdownLogoutBtn = document.getElementById("dropdown-logout-btn");
-
-  if (profileMenuBtn) {
-    profileMenuBtn.addEventListener("click", (e) => {
-      e.preventDefault();
-      handleTabSwitch("perfil");
-    });
-  }
 
   if (dropdownResetBtn) {
     dropdownResetBtn.addEventListener("click", async (e) => {
