@@ -3,7 +3,7 @@
   "short_name": "Finance Manager",
   "id": "/?source=pwa",
   "description": "Gerenciador Financeiro Premium e Inteligente para controle de gastos, cartões e faturamento.",
-  "start_url": "./index.html",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#2563eb",
@@ -46,14 +46,14 @@
       "name": "Nova Despesa",
       "short_name": "Despesa",
       "description": "Adicionar nova despesa rapidamente",
-      "url": "./index.html#btn-nova-despesa",
+      "url": "./#btn-nova-despesa",
       "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
     },
     {
       "name": "Nova Receita",
       "short_name": "Receita",
       "description": "Adicionar nova receita rapidamente",
-      "url": "./index.html#btn-nova-receita",
+      "url": "./#btn-nova-receita",
       "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
     }
   ]
