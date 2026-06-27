@@ -2348,7 +2348,8 @@ body.theme-dark .table-action-btn {
     font-size: 0.65rem;
     font-weight: 600;
     gap: 0.2rem;
-    width: 16%;
+    width: auto;
+    flex: 1;
     padding: 0.25rem 0;
     transition: var(--transition-fast);
     border-radius: var(--radius-sm);
@@ -2389,6 +2390,31 @@ body.theme-dark .table-action-btn {
   .action-btn, .control-btn, .user-profile-badge, select, input, button {
     min-height: 44px !important;
   }
+
+  /* Evitar que botões circulares ou pequenos virem ovais devido ao min-height de 44px */
+  .control-btn {
+    width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+  }
+
+  .table-action-btn {
+    width: 36px !important;
+    height: 36px !important;
+    min-height: 36px !important;
+  }
+
+  .emoji-sug-btn {
+    width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+  }
+
+  .modal-close-btn {
+    width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+  }
   
   .user-profile-badge {
     padding: 0.35rem 0.65rem;
@@ -2421,10 +2447,30 @@ body.theme-dark .table-action-btn {
     padding-bottom: 2rem !important;
   }
 
+  /* Abas com rolagem horizontal no mobile para evitar esticar a tela */
+  .tabs-container {
+    width: 100% !important;
+    overflow-x: auto !important;
+    white-space: nowrap !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none; /* Firefox */
+    padding-bottom: 0.25rem;
+  }
+  
+  .tabs-container::-webkit-scrollbar {
+    display: none; /* Chrome/Safari */
+  }
+
+  .tab-btn {
+    flex: 0 0 auto !important;
+  }
+
   /* Tabelas */
-  .table-responsive {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+  .table-responsive,
+  .table-wrapper {
+    width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
   }
   
   /* Evitar fontes minúsculas */
