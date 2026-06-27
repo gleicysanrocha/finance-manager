@@ -29,7 +29,7 @@ try {
   fs.mkdirSync('www', { recursive: true });
 
   // Copy files
-  const filesToCopy = ['index.html', 'manifest.json', 'sw.js'];
+  const filesToCopy = ['index.html', 'manifest.json', 'sw.js', 'privacy.html'];
   filesToCopy.forEach(file => {
     if (fs.existsSync(file)) {
       fs.copyFileSync(file, path.join('www', file));
