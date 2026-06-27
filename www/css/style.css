@@ -1700,6 +1700,7 @@ body.theme-dark .table-action-btn {
   }
 }
 
+
 /* Breakpoint 576px (Smartphones) */
 @media (max-width: 576px) {
   .main-header {
@@ -1721,16 +1722,39 @@ body.theme-dark .table-action-btn {
   }
 
   .metrics-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.75rem !important;
   }
 
   .actions-container {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.75rem !important;
+  }
+
+  .action-btn {
+    font-size: 0.82rem !important;
+    padding: 0.75rem 0.5rem !important;
+  }
+
+  .health-score-layout {
     grid-template-columns: 1fr;
   }
 
-  .health-score-layout,
   .health-stats-row {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 0.5rem !important;
+  }
+
+  .health-stats-row div {
+    padding: 0.5rem !important;
+  }
+
+  .health-stats-row span {
+    font-size: 0.65rem !important;
+  }
+
+  .health-stats-row strong {
+    font-size: 0.8rem !important;
   }
 
   .health-ring {
