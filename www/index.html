@@ -689,9 +689,12 @@
                 <p id="project-details-desc" style="font-size: 0.88rem; color: var(--text-muted); margin: 0;"></p>
               </div>
               
-              <div style="display: flex; gap: 0.75rem; align-items: center;">
+              <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
                 <button type="button" class="action-btn btn-expense" id="btn-novo-gasto-projeto" style="padding: 0.5rem 1rem; font-size: 0.85rem; display: flex; align-items: center; gap: 0.4rem; height: 38px;">
                   + Adicionar Gasto
+                </button>
+                <button type="button" class="action-btn btn-card" id="btn-editar-projeto" style="padding: 0.5rem 1rem; font-size: 0.85rem; display: flex; align-items: center; gap: 0.4rem; height: 38px; background: linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%); border: none;">
+                  ✏️ Editar Projeto
                 </button>
                 <button type="button" class="action-btn btn-card" id="btn-deletar-projeto" style="padding: 0.5rem 1rem; font-size: 0.85rem; display: flex; align-items: center; gap: 0.4rem; height: 38px; background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%); border: none;">
                   🗑️ Excluir Projeto
@@ -1514,6 +1517,7 @@
         <button class="modal-close-btn" id="close-modal-gasto-projeto" aria-label="Fechar">&times;</button>
       </header>
       <form id="form-gasto-projeto" method="dialog">
+        <input type="hidden" id="pe-id">
         <div class="form-group">
           <label for="pe-desc">Descrição do Gasto</label>
           <input type="text" id="pe-desc" placeholder="Ex: 5 Sacos de Cimento" required>

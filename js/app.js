@@ -3798,8 +3798,33 @@ document.addEventListener("DOMContentLoaded", () => {
   if (btnNovoProjeto) {
     btnNovoProjeto.addEventListener("click", () => {
       document.getElementById("modal-projeto-title").textContent = "Novo Projeto";
+      const saveBtn = document.getElementById("btn-salvar-projeto");
+      if (saveBtn) saveBtn.textContent = "Criar Projeto";
       document.getElementById("proj-id").value = "";
       formNovoProjeto.reset();
+      modalProjeto.showModal();
+    });
+  }
+
+  // Abertura do Modal de Editar Projeto
+  const btnEditarProjeto = document.getElementById("btn-editar-projeto");
+  if (btnEditarProjeto) {
+    btnEditarProjeto.addEventListener("click", () => {
+      if (!state.selectedProjectId) return;
+      const proj = state.projects.find(p => p.id === state.selectedProjectId);
+      if (!proj) return;
+
+      document.getElementById("modal-projeto-title").textContent = "Editar Projeto";
+      const saveBtn = document.getElementById("btn-salvar-projeto");
+      if (saveBtn) saveBtn.textContent = "Salvar Alterações";
+      
+      document.getElementById("proj-id").value = proj.id;
+      document.getElementById("proj-icon").value = proj.icon || "📁";
+      document.getElementById("proj-name").value = proj.name;
+      document.getElementById("proj-budget").value = proj.budget || 0;
+      document.getElementById("proj-color").value = proj.color || "linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%)";
+      document.getElementById("proj-desc").value = proj.description || "";
+      
       modalProjeto.showModal();
     });
   }
@@ -3855,7 +3880,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
       await saveState();
       modalProjeto.close();
-      renderProjects();
+      
+      if (state.selectedProjectId && state.selectedProjectId === projId) {
+        renderProjectDetails(projId);
+      } else {
+        renderProjects();
+      }
     });
   }
 
@@ -3890,6 +3920,9 @@ document.addEventListener("DOMContentLoaded", () => {
   // Abertura do Modal de Novo Gasto do Projeto
   if (btnNovoGastoProjeto) {
     btnNovoGastoProjeto.addEventListener("click", () => {
+      document.getElementById("modal-gasto-projeto-title").textContent = "Adicionar Gasto ao Projeto";
+      modalGastoProjeto.querySelector(".btn-submit").textContent = "Adicionar Gasto";
+      document.getElementById("pe-id").value = "";
       formGastoProjeto.reset();
       const peDateInput = document.getElementById("pe-date");
       if (peDateInput) {
@@ -3910,6 +3943,7 @@ document.addEventListener("DOMContentLoaded", () => {
       e.preventDefault();
       if (!state.selectedProjectId) return;
 
+      const peId = document.getElementById("pe-id").value;
       const peDesc = document.getElementById("pe-desc").value;
       const peVal = parseFloat(document.getElementById("pe-val").value) || 0;
       const peQty = parseInt(document.getElementById("pe-qty").value) || 1;
@@ -3919,15 +3953,29 @@ document.addEventListener("DOMContentLoaded", () => {
       const proj = state.projects.find(p => p.id === state.selectedProjectId);
       if (proj) {
         if (!proj.expenses) proj.expenses = [];
-        const newExpense = {
-          id: "pe-" + Date.now(),
-          description: peDesc,
-          value: peVal,
-          quantity: peQty,
-          category: peCategory,
-          date: peDate
-        };
-        proj.expenses.push(newExpense);
+        
+        if (peId) {
+          // Editar gasto existente
+          const exp = proj.expenses.find(e => e.id === peId);
+          if (exp) {
+            exp.description = peDesc;
+            exp.value = peVal;
+            exp.quantity = peQty;
+            exp.category = peCategory;
+            exp.date = peDate;
+          }
+        } else {
+          // Novo gasto
+          const newExpense = {
+            id: "pe-" + Date.now(),
+            description: peDesc,
+            value: peVal,
+            quantity: peQty,
+            category: peCategory,
+            date: peDate
+          };
+          proj.expenses.push(newExpense);
+        }
         await saveState();
         modalGastoProjeto.close();
         renderProjectDetails(state.selectedProjectId);
@@ -4101,18 +4149,38 @@ document.addEventListener("DOMContentLoaded", () => {
           <td class="text-center" style="font-weight: 600;">${exp.quantity || 1}</td>
           <td class="text-right">${formatCurrency(exp.value)}</td>
           <td class="text-right" style="font-weight: 700;">${formatCurrency(itemTotal)}</td>
-          <td class="text-right">
+          <td class="text-right" style="display: flex; gap: 0.25rem; justify-content: flex-end; align-items: center; border-bottom: none;">
+            <button class="action-btn btn-edit-gasto" data-id="${exp.id}" title="Editar Gasto" style="background: none; border: none; color: var(--color-primary); cursor: pointer; padding: 4px; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; transition: background-color 0.2s;">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-svg" style="width: 16px; height: 16px;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+            </button>
             <button class="action-btn btn-delete-gasto" data-id="${exp.id}" title="Excluir Gasto" style="background: none; border: none; color: var(--color-expense); cursor: pointer; padding: 4px; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; transition: background-color 0.2s;">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-svg" style="width: 16px; height: 16px;"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
             </button>
           </td>
         `;
 
-        // Hover effect on delete button
+        // Hover and click for edit button
+        const editBtn = row.querySelector(".btn-edit-gasto");
+        editBtn.addEventListener("mouseenter", () => editBtn.style.backgroundColor = "rgba(79, 70, 229, 0.08)");
+        editBtn.addEventListener("mouseleave", () => editBtn.style.backgroundColor = "transparent");
+        editBtn.addEventListener("click", () => {
+          document.getElementById("modal-gasto-projeto-title").textContent = "Editar Gasto";
+          modalGastoProjeto.querySelector(".btn-submit").textContent = "Salvar Alterações";
+          
+          document.getElementById("pe-id").value = exp.id;
+          document.getElementById("pe-desc").value = exp.description;
+          document.getElementById("pe-val").value = exp.value;
+          document.getElementById("pe-qty").value = exp.quantity || 1;
+          document.getElementById("pe-category").value = exp.category || "Material";
+          document.getElementById("pe-date").value = exp.date;
+
+          modalGastoProjeto.showModal();
+        });
+
+        // Hover and click for delete button
         const delBtn = row.querySelector(".btn-delete-gasto");
         delBtn.addEventListener("mouseenter", () => delBtn.style.backgroundColor = "rgba(239, 68, 68, 0.08)");
         delBtn.addEventListener("mouseleave", () => delBtn.style.backgroundColor = "transparent");
-        
         delBtn.addEventListener("click", async () => {
           if (await window.customConfirm(`Excluir o gasto "${exp.description}" do projeto?`)) {
             proj.expenses = proj.expenses.filter(e => e.id !== exp.id);
