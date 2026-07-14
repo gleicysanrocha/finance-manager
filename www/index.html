@@ -47,6 +47,7 @@
           <li><a href="#" class="nav-item" data-tab="recorrentes"><span class="nav-icon" id="nav-icon-recurring"></span>Recorrentes</a></li>
           <li><a href="#" class="nav-item" data-tab="metas"><span class="nav-icon" id="nav-icon-goal"></span>Metas</a></li>
           <li><a href="#" class="nav-item" data-tab="contas"><span class="nav-icon" id="nav-icon-account"></span>Contas</a></li>
+          <li><a href="#" class="nav-item" data-tab="projetos"><span class="nav-icon" id="nav-icon-projects"></span>Projetos</a></li>
           <li><a href="#" class="nav-item" data-tab="relatorios"><span class="nav-icon" id="nav-icon-report"></span>Relatórios</a></li>
           <li><a href="#" class="nav-item" data-tab="perfil"><span class="nav-icon" id="nav-icon-profile"></span>Minha Conta</a></li>
           <li id="main-nav-admin" style="display: none;"><a href="#" class="nav-item" data-tab="administrador"><span class="nav-icon" id="nav-icon-admin"></span>Administrador</a></li>
@@ -649,6 +650,113 @@
               <!-- Injetado dinamicamente via JS -->
             </div>
           </div>
+
+        </div>
+      </div>
+
+      <!-- VISÃO 8: PROJETOS INDEPENDENTES -->
+      <div id="view-projetos" class="tab-view" style="display: none;">
+        <section class="welcome-filter-section">
+          <div class="welcome-text">
+            <h2>Projetos Independentes 📁</h2>
+            <p>Controle gastos de reformas, eventos ou viagens de forma isolada, sem afetar seu saldo mensal.</p>
+          </div>
+          <button class="action-btn btn-expense" style="padding: 0.6rem 1.25rem; font-size: 0.88rem; width: auto;" id="btn-novo-projeto">
+            + Novo Projeto
+          </button>
+        </section>
+
+        <!-- Seção Principal de Projetos -->
+        <div id="projects-main-layout" style="margin-top: 1.5rem;">
+          
+          <!-- Grade de Projetos (Grade de Cartões) -->
+          <section id="projects-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem;">
+            <!-- Injetado dinamicamente por JS -->
+          </section>
+
+          <!-- Detalhes do Projeto Selecionado -->
+          <section id="project-details-panel" class="glass-effect" style="display: none; padding: 1.5rem; border-radius: var(--radius-lg); flex-direction: column; gap: 1.5rem;">
+            <!-- Cabeçalho de Detalhes -->
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1.25rem;">
+              <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                <button type="button" class="action-btn btn-card" id="btn-voltar-projetos" style="width: fit-content; padding: 0.4rem 0.85rem; font-size: 0.8rem; background: var(--border-color); border: none; color: var(--text-main); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.35rem;">
+                  <span>←</span> Voltar aos Projetos
+                </button>
+                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                  <span id="project-details-icon" style="font-size: 2rem;"></span>
+                  <h3 id="project-details-name" style="font-size: 1.5rem; font-weight: 700;">Nome do Projeto</h3>
+                </div>
+                <p id="project-details-desc" style="font-size: 0.88rem; color: var(--text-muted); margin: 0;"></p>
+              </div>
+              
+              <div style="display: flex; gap: 0.75rem; align-items: center;">
+                <button type="button" class="action-btn btn-expense" id="btn-novo-gasto-projeto" style="padding: 0.5rem 1rem; font-size: 0.85rem; display: flex; align-items: center; gap: 0.4rem; height: 38px;">
+                  + Adicionar Gasto
+                </button>
+                <button type="button" class="action-btn btn-card" id="btn-deletar-projeto" style="padding: 0.5rem 1rem; font-size: 0.85rem; display: flex; align-items: center; gap: 0.4rem; height: 38px; background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%); border: none;">
+                  🗑️ Excluir Projeto
+                </button>
+              </div>
+            </div>
+
+            <!-- Métricas do Projeto -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+              <div class="metric-card despesas glass-effect" style="margin: 0; background: rgba(239, 68, 68, 0.04); border: 1px solid rgba(239, 68, 68, 0.1);">
+                <span class="metric-title">TOTAL GASTO</span>
+                <div class="metric-value text-danger" id="project-val-gasto">R$ 0,00</div>
+                <div class="metric-subtext">Acumulado do projeto</div>
+              </div>
+              <div class="metric-card limite glass-effect" style="margin: 0; background: rgba(79, 70, 229, 0.04); border: 1px solid rgba(79, 70, 229, 0.1);">
+                <span class="metric-title">ORÇAMENTO PREVISTO</span>
+                <div class="metric-value text-primary" id="project-val-orcamento">R$ 0,00</div>
+                <div class="metric-subtext">Meta de limite de gastos</div>
+              </div>
+              <div class="metric-card pagas glass-effect" style="margin: 0; background: rgba(16, 185, 129, 0.04); border: 1px solid rgba(16, 185, 129, 0.1);">
+                <span class="metric-title">DISPONÍVEL / RESTANTE</span>
+                <div class="metric-value text-success" id="project-val-restante">R$ 0,00</div>
+                <div class="metric-subtext" id="project-val-status-text">Dentro do limite</div>
+              </div>
+            </div>
+
+            <!-- Barra de Progresso Visual de Orçamento -->
+            <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+              <div style="display: flex; justify-content: space-between; font-size: 0.78rem; font-weight: 600;">
+                <span style="color: var(--text-muted);">Progresso do Orçamento Gasto</span>
+                <span id="project-progress-pct">0%</span>
+              </div>
+              <div style="width: 100%; height: 10px; background: var(--border-color); border-radius: var(--radius-full); overflow: hidden;">
+                <div id="project-progress-bar" style="height: 100%; width: 0%; background: var(--color-expense); transition: width 0.3s ease; border-radius: var(--radius-full);"></div>
+              </div>
+            </div>
+
+            <!-- Tabela de Itens de Gasto -->
+            <div style="display: flex; flex-direction: column; gap: 1rem; margin-top: 0.5rem;">
+              <h4 style="font-size: 1.05rem; font-weight: 700; margin: 0;">Itens / Gastos Lançados</h4>
+              
+              <div class="table-wrapper">
+                <table class="premium-table">
+                  <thead>
+                    <tr>
+                      <th>Descrição</th>
+                      <th>Categoria</th>
+                      <th>Data</th>
+                      <th class="text-center">Qtd</th>
+                      <th class="text-right">Valor Unitário</th>
+                      <th class="text-right">Total</th>
+                      <th class="text-right">Ação</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tbody-gastos-projeto">
+                    <!-- Injetado por JS -->
+                  </tbody>
+                </table>
+                <div class="empty-state-container" id="empty-gastos-projeto" style="display: none;">
+                  <div style="font-size: 3rem; text-align: center; margin-bottom: 0.5rem;">🧱</div>
+                  <p>Nenhum gasto registrado neste projeto ainda.</p>
+                </div>
+              </div>
+            </div>
+          </section>
 
         </div>
       </div>
@@ -1336,6 +1444,116 @@
     </div>
   </dialog>
 
+  <!-- 9. Modal Novo/Editar Projeto -->
+  <dialog class="premium-modal glass-effect" id="modal-projeto-dialog">
+    <div class="modal-content">
+      <header class="modal-header">
+        <h3 id="modal-projeto-title">Novo Projeto</h3>
+        <button class="modal-close-btn" id="close-modal-projeto" aria-label="Fechar">&times;</button>
+      </header>
+      <form id="form-novo-projeto" method="dialog">
+        <input type="hidden" id="proj-id">
+        <div class="form-row" style="grid-template-columns: 100px 1fr;">
+          <div class="form-group">
+            <label for="proj-icon">Ícone/Emoji</label>
+            <input type="text" id="proj-icon" maxlength="2" placeholder="📁" style="text-align: center; font-size: 1.25rem;" required>
+          </div>
+          <div class="form-group">
+            <label for="proj-name">Nome do Projeto</label>
+            <input type="text" id="proj-name" placeholder="Ex: Reforma do Quarto" required>
+          </div>
+        </div>
+        <div class="form-group" style="margin-top: -0.25rem;">
+          <label>Sugestões de Ícones rápidos</label>
+          <div class="emoji-suggestions">
+            <button type="button" class="emoji-sug-btn">📁</button>
+            <button type="button" class="emoji-sug-btn">🔨</button>
+            <button type="button" class="emoji-sug-btn">🛏️</button>
+            <button type="button" class="emoji-sug-btn">✈️</button>
+            <button type="button" class="emoji-sug-btn">🎨</button>
+            <button type="button" class="emoji-sug-btn">🎉</button>
+            <button type="button" class="emoji-sug-btn">🚗</button>
+            <button type="button" class="emoji-sug-btn">🏠</button>
+            <button type="button" class="emoji-sug-btn">💻</button>
+            <button type="button" class="emoji-sug-btn">🎓</button>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="proj-budget">Orçamento Limite (R$)</label>
+            <input type="number" step="0.01" id="proj-budget" placeholder="5000,00" required>
+          </div>
+          <div class="form-group">
+            <label for="proj-color">Estilo de Cor</label>
+            <select id="proj-color" required>
+              <option value="linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%)" selected>Azul Indigo & Ciano</option>
+              <option value="linear-gradient(135deg, #097d52 0%, #0fb77a 100%)">Verde Esmeralda</option>
+              <option value="linear-gradient(135deg, #f59e0b 0%, #e11d48 100%)">Pôr do Sol Flamejante</option>
+              <option value="linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)">Deep Purple Night</option>
+              <option value="linear-gradient(135deg, #0f172a 0%, #334155 100%)">Slate Premium Black</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="proj-desc">Descrição / Detalhes</label>
+          <input type="text" id="proj-desc" placeholder="Ex: Reforma do quarto principal, materiais, pintura e móveis.">
+        </div>
+        <footer class="modal-footer">
+          <button type="button" class="btn-cancel" id="btn-cancelar-projeto">Cancelar</button>
+          <button type="submit" class="btn-submit btn-expense-submit" id="btn-salvar-projeto">Criar Projeto</button>
+        </footer>
+      </form>
+    </div>
+  </dialog>
+
+  <!-- 10. Modal Novo Gasto do Projeto -->
+  <dialog class="premium-modal glass-effect" id="modal-gasto-projeto-dialog">
+    <div class="modal-content">
+      <header class="modal-header">
+        <h3 id="modal-gasto-projeto-title">Adicionar Gasto ao Projeto</h3>
+        <button class="modal-close-btn" id="close-modal-gasto-projeto" aria-label="Fechar">&times;</button>
+      </header>
+      <form id="form-gasto-projeto" method="dialog">
+        <div class="form-group">
+          <label for="pe-desc">Descrição do Gasto</label>
+          <input type="text" id="pe-desc" placeholder="Ex: 5 Sacos de Cimento" required>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="pe-val">Valor Unitário (R$)</label>
+            <input type="number" step="0.01" id="pe-val" placeholder="0,00" required>
+          </div>
+          <div class="form-group">
+            <label for="pe-qty">Quantidade</label>
+            <input type="number" min="1" id="pe-qty" value="1" required>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="pe-category">Categoria</label>
+            <select id="pe-category" required>
+              <option value="Material" selected>🧱 Material de Construção</option>
+              <option value="Serviço">🛠️ Mão de Obra / Serviço</option>
+              <option value="Móveis">🪑 Móveis & Decoração</option>
+              <option value="Elétrica">⚡ Elétrica & Iluminação</option>
+              <option value="Logística">🚚 Frete / Logística</option>
+              <option value="Ferramentas">🔧 Ferramentas</option>
+              <option value="Outros">📦 Outros</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="pe-date">Data do Gasto</label>
+            <input type="date" id="pe-date" required>
+          </div>
+        </div>
+        <footer class="modal-footer">
+          <button type="button" class="btn-cancel" id="btn-cancelar-gasto-projeto">Cancelar</button>
+          <button type="submit" class="btn-submit btn-expense-submit">Adicionar Gasto</button>
+        </footer>
+      </form>
+    </div>
+  </dialog>
+
   <!-- TELA DE LOGIN / AUTENTICAÇÃO (FIREBASE) -->
   <div id="auth-overlay" class="auth-overlay" style="display: none;">
     <div class="auth-card">
@@ -1410,6 +1628,12 @@
         <a href="#" class="bottom-nav-item" data-tab="relatorios">
           <span class="bottom-nav-icon" id="bottom-icon-report"></span>
           <span>Relatórios</span>
+        </a>
+      </li>
+      <li>
+        <a href="#" class="bottom-nav-item" data-tab="projetos">
+          <span class="bottom-nav-icon" id="bottom-icon-projects"></span>
+          <span>Projetos</span>
         </a>
       </li>
       <li>

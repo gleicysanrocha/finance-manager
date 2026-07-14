@@ -197,6 +197,51 @@ const DEFAULT_GOALS = [
   }
 ];
 
+const DEFAULT_PROJECTS = [
+  {
+    id: "proj-1",
+    icon: "🛏️",
+    name: "Reforma do Quarto",
+    budget: 5000.00,
+    description: "Reforma completa do quarto principal, incluindo pintura, móveis planejados e materiais.",
+    color: "linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%)",
+    expenses: [
+      {
+        id: "pe-1",
+        description: "Lata de Tinta Acrílica Suvinil",
+        value: 280.00,
+        quantity: 2,
+        category: "Material",
+        date: "2026-05-10"
+      },
+      {
+        id: "pe-2",
+        description: "Pincéis e Rolos de Pintura",
+        value: 65.50,
+        quantity: 1,
+        category: "Acessórios",
+        date: "2026-05-11"
+      },
+      {
+        id: "pe-3",
+        description: "Mão de Obra do Pintor",
+        value: 1200.00,
+        quantity: 1,
+        category: "Serviço",
+        date: "2026-05-15"
+      },
+      {
+        id: "pe-4",
+        description: "Interruptores e Fiação nova",
+        value: 150.00,
+        quantity: 1,
+        category: "Elétrica",
+        date: "2026-05-12"
+      }
+    ]
+  }
+];
+
 window.DEFAULT_CARDS = DEFAULT_CARDS;
 window.DEFAULT_EXPENSES = DEFAULT_EXPENSES;
 window.DEFAULT_REVENUES = DEFAULT_REVENUES;
@@ -204,5 +249,6 @@ window.DEFAULT_ORDERS = DEFAULT_ORDERS;
 window.DEFAULT_ACCOUNTS = DEFAULT_ACCOUNTS;
 window.DEFAULT_RECURRING = DEFAULT_RECURRING;
 window.DEFAULT_GOALS = DEFAULT_GOALS;
+window.DEFAULT_PROJECTS = DEFAULT_PROJECTS;
 
 

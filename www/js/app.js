@@ -12,6 +12,8 @@ document.addEventListener("DOMContentLoaded", () => {
     accounts: [],
     recurring: [],
     goals: [],
+    projects: [],
+    selectedProjectId: "",
     userName: "Usuário",
     tagline: "Não se trata de quanto você ganha, mas de como você gerencia.",
     theme: "light",
@@ -43,6 +45,7 @@ document.addEventListener("DOMContentLoaded", () => {
       "nav-icon-recurring": ICONS.recurring,
       "nav-icon-goal": ICONS.goal,
       "nav-icon-account": ICONS.account,
+      "nav-icon-projects": ICONS.projects,
       "nav-icon-report": ICONS.report,
       "nav-icon-profile": ICONS.user,
       "nav-icon-admin": ICONS.admin,
@@ -51,6 +54,7 @@ document.addEventListener("DOMContentLoaded", () => {
       "bottom-icon-goal": ICONS.goal,
       "bottom-icon-account": ICONS.account,
       "bottom-icon-report": ICONS.report,
+      "bottom-icon-projects": ICONS.projects,
       "bottom-icon-profile": ICONS.user,
       "bottom-icon-admin": ICONS.admin,
       "auth-logo-svg": ICONS.walletFilled,
@@ -201,6 +205,7 @@ document.addEventListener("DOMContentLoaded", () => {
       "accounts",
       "recurring",
       "goals",
+      "projects",
       "username",
       "tagline",
       "theme",
@@ -233,6 +238,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const storedAccounts = getLocalValue("accounts");
     const storedRecurring = getLocalValue("recurring");
     const storedGoals = getLocalValue("goals");
+    const storedProjects = getLocalValue("projects");
     const storedUserName = getLocalValue("username");
     const storedTagline = getLocalValue("tagline");
     if (storedCards && storedExpenses && storedRevenues && storedOrders) {
@@ -250,6 +256,13 @@ document.addEventListener("DOMContentLoaded", () => {
     state.accounts = storedAccounts ? JSON.parse(storedAccounts) : [];
     state.recurring = storedRecurring ? JSON.parse(storedRecurring) : [];
     state.goals = storedGoals ? JSON.parse(storedGoals) : [];
+    
+    if (storedProjects) {
+      state.projects = JSON.parse(storedProjects);
+    } else {
+      state.projects = window.DEFAULT_PROJECTS ? JSON.parse(JSON.stringify(window.DEFAULT_PROJECTS)) : [];
+    }
+    
     state.userName = storedUserName || currentUser?.displayName || (currentUser ? "Usuário" : "Usuário");
     state.tagline = storedTagline || DEFAULT_TAGLINE;
 
@@ -277,6 +290,7 @@ document.addEventListener("DOMContentLoaded", () => {
           state.accounts = cloudState.accounts || [];
           state.recurring = cloudState.recurring || [];
           state.goals = cloudState.goals || [];
+          state.projects = cloudState.projects || [];
           state.userName = cloudState.userName || currentUser.displayName || "Usuário";
           state.tagline = cloudState.tagline || "";
           state.profilePhoto = cloudState.profilePhoto || "";
@@ -355,6 +369,7 @@ document.addEventListener("DOMContentLoaded", () => {
     localStorage.setItem(getLocalStorageKey("accounts"), JSON.stringify(state.accounts));
     localStorage.setItem(getLocalStorageKey("recurring"), JSON.stringify(state.recurring));
     localStorage.setItem(getLocalStorageKey("goals"), JSON.stringify(state.goals));
+    localStorage.setItem(getLocalStorageKey("projects"), JSON.stringify(state.projects || []));
     localStorage.setItem(getLocalStorageKey("username"), state.userName);
     localStorage.setItem(getLocalStorageKey("tagline"), state.tagline);
     localStorage.setItem(getLocalStorageKey("theme"), state.theme);
@@ -374,6 +389,7 @@ document.addEventListener("DOMContentLoaded", () => {
           accounts: state.accounts,
           recurring: state.recurring,
           goals: state.goals,
+          projects: state.projects || [],
           userName: state.userName,
           tagline: state.tagline,
           theme: state.theme,
@@ -404,6 +420,8 @@ document.addEventListener("DOMContentLoaded", () => {
     state.accounts = [];
     state.recurring = [];
     state.goals = [];
+    state.projects = [];
+    state.selectedProjectId = "";
     state.userName = name;
     state.tagline = DEFAULT_TAGLINE;
     state.selectedCardId = "";
@@ -2696,6 +2714,12 @@ document.addEventListener("DOMContentLoaded", () => {
     // 5. Se voltou para o Dashboard, atualizar os dados
     if (targetTab === "dashboard") {
       updateAllDashboard();
+    } else if (targetTab === "projetos") {
+      const gridEl = document.getElementById("projects-grid");
+      const detailsEl = document.getElementById("project-details-panel");
+      if (gridEl) gridEl.style.display = "grid";
+      if (detailsEl) detailsEl.style.display = "none";
+      renderProjects();
     }
   }
 
@@ -3751,6 +3775,359 @@ document.addEventListener("DOMContentLoaded", () => {
       window.print();
     });
   }
+
+  // ==========================================================================
+  // 13. SISTEMA DE PROJETOS INDEPENDENTES (GASTOS ISOLADOS)
+  // ==========================================================================
+  const modalProjeto = document.getElementById("modal-projeto-dialog");
+  const formNovoProjeto = document.getElementById("form-novo-projeto");
+  const btnNovoProjeto = document.getElementById("btn-novo-projeto");
+  const closeProjeto = document.getElementById("close-modal-projeto");
+  const cancelProjeto = document.getElementById("btn-cancelar-projeto");
+
+  const modalGastoProjeto = document.getElementById("modal-gasto-projeto-dialog");
+  const formGastoProjeto = document.getElementById("form-gasto-projeto");
+  const btnNovoGastoProjeto = document.getElementById("btn-novo-gasto-projeto");
+  const closeGastoProjeto = document.getElementById("close-modal-gasto-projeto");
+  const cancelGastoProjeto = document.getElementById("btn-cancelar-gasto-projeto");
+
+  const btnVoltarProjetos = document.getElementById("btn-voltar-projetos");
+  const btnDeletarProjeto = document.getElementById("btn-deletar-projeto");
+
+  // Abertura do Modal de Novo Projeto
+  if (btnNovoProjeto) {
+    btnNovoProjeto.addEventListener("click", () => {
+      document.getElementById("modal-projeto-title").textContent = "Novo Projeto";
+      document.getElementById("proj-id").value = "";
+      formNovoProjeto.reset();
+      modalProjeto.showModal();
+    });
+  }
+
+  if (closeProjeto) closeProjeto.addEventListener("click", () => modalProjeto.close());
+  if (cancelProjeto) cancelProjeto.addEventListener("click", () => modalProjeto.close());
+
+  // Cliques nos Emojis sugeridos no modal de Projeto
+  const emojiSugButtons = document.querySelectorAll("#modal-projeto-dialog .emoji-sug-btn");
+  emojiSugButtons.forEach(btn => {
+    btn.addEventListener("click", () => {
+      const iconInput = document.getElementById("proj-icon");
+      if (iconInput) {
+        iconInput.value = btn.textContent;
+      }
+    });
+  });
+
+  // Salvar Projeto
+  if (formNovoProjeto) {
+    formNovoProjeto.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const projId = document.getElementById("proj-id").value;
+      const projIcon = document.getElementById("proj-icon").value || "📁";
+      const projName = document.getElementById("proj-name").value;
+      const projBudget = parseFloat(document.getElementById("proj-budget").value) || 0;
+      const projColor = document.getElementById("proj-color").value;
+      const projDesc = document.getElementById("proj-desc").value;
+
+      if (projId) {
+        // Editar existente
+        const proj = state.projects.find(p => p.id === projId);
+        if (proj) {
+          proj.icon = projIcon;
+          proj.name = projName;
+          proj.budget = projBudget;
+          proj.color = projColor;
+          proj.description = projDesc;
+        }
+      } else {
+        // Novo projeto
+        const newProj = {
+          id: "proj-" + Date.now(),
+          icon: projIcon,
+          name: projName,
+          budget: projBudget,
+          color: projColor,
+          description: projDesc,
+          expenses: []
+        };
+        state.projects.push(newProj);
+      }
+
+      await saveState();
+      modalProjeto.close();
+      renderProjects();
+    });
+  }
+
+  // Voltar para a grade de projetos
+  if (btnVoltarProjetos) {
+    btnVoltarProjetos.addEventListener("click", () => {
+      state.selectedProjectId = "";
+      document.getElementById("projects-grid").style.display = "grid";
+      document.getElementById("project-details-panel").style.display = "none";
+      renderProjects();
+    });
+  }
+
+  // Excluir Projeto
+  if (btnDeletarProjeto) {
+    btnDeletarProjeto.addEventListener("click", async () => {
+      if (!state.selectedProjectId) return;
+      const proj = state.projects.find(p => p.id === state.selectedProjectId);
+      if (!proj) return;
+
+      if (await window.customConfirm(`Tem certeza que deseja excluir o projeto "${proj.name}"? Todos os gastos lançados nele serão perdidos permanentemente.`)) {
+        state.projects = state.projects.filter(p => p.id !== state.selectedProjectId);
+        state.selectedProjectId = "";
+        await saveState();
+        document.getElementById("projects-grid").style.display = "grid";
+        document.getElementById("project-details-panel").style.display = "none";
+        renderProjects();
+      }
+    });
+  }
+
+  // Abertura do Modal de Novo Gasto do Projeto
+  if (btnNovoGastoProjeto) {
+    btnNovoGastoProjeto.addEventListener("click", () => {
+      formGastoProjeto.reset();
+      const peDateInput = document.getElementById("pe-date");
+      if (peDateInput) {
+        const today = new Date();
+        const pad = (n) => String(n).padStart(2, "0");
+        peDateInput.value = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+      }
+      modalGastoProjeto.showModal();
+    });
+  }
+
+  if (closeGastoProjeto) closeGastoProjeto.addEventListener("click", () => modalGastoProjeto.close());
+  if (cancelGastoProjeto) cancelGastoProjeto.addEventListener("click", () => modalGastoProjeto.close());
+
+  // Salvar Gasto do Projeto
+  if (formGastoProjeto) {
+    formGastoProjeto.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (!state.selectedProjectId) return;
+
+      const peDesc = document.getElementById("pe-desc").value;
+      const peVal = parseFloat(document.getElementById("pe-val").value) || 0;
+      const peQty = parseInt(document.getElementById("pe-qty").value) || 1;
+      const peCategory = document.getElementById("pe-category").value;
+      const peDate = document.getElementById("pe-date").value;
+
+      const proj = state.projects.find(p => p.id === state.selectedProjectId);
+      if (proj) {
+        if (!proj.expenses) proj.expenses = [];
+        const newExpense = {
+          id: "pe-" + Date.now(),
+          description: peDesc,
+          value: peVal,
+          quantity: peQty,
+          category: peCategory,
+          date: peDate
+        };
+        proj.expenses.push(newExpense);
+        await saveState();
+        modalGastoProjeto.close();
+        renderProjectDetails(state.selectedProjectId);
+      }
+    });
+  }
+
+  // Renderizar a grade de cartões dos projetos
+  function renderProjects() {
+    const gridEl = document.getElementById("projects-grid");
+    if (!gridEl) return;
+
+    gridEl.innerHTML = "";
+
+    if (!state.projects || state.projects.length === 0) {
+      gridEl.innerHTML = `
+        <div class="empty-state-container" style="grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 3rem 1.5rem; text-align: center; border-radius: var(--radius-lg); background: var(--bg-glass); border: 1px solid var(--border-color);">
+          <div style="font-size: 3rem; margin-bottom: 1rem;">📂</div>
+          <h3>Nenhum projeto cadastrado</h3>
+          <p style="color: var(--text-muted); font-size: 0.88rem; max-width: 320px; margin-top: 0.5rem;">Crie projetos para acompanhar reformas, viagens ou gastos isolados sem misturar com suas contas mensais.</p>
+        </div>
+      `;
+      return;
+    }
+
+    state.projects.forEach(proj => {
+      const expensesList = proj.expenses || [];
+      const totalSpent = expensesList.reduce((sum, item) => sum + (item.value * (item.quantity || 1)), 0);
+      const budget = proj.budget || 0;
+      const progressPct = budget > 0 ? Math.min((totalSpent / budget) * 100, 100) : 0;
+      const roundedProgress = progressPct.toFixed(1);
+
+      // Card de projeto estilo Premium
+      const card = document.createElement("div");
+      card.className = "metric-card glass-effect";
+      card.style.cursor = "pointer";
+      card.style.position = "relative";
+      card.style.overflow = "hidden";
+      card.style.display = "flex";
+      card.style.flexDirection = "column";
+      card.style.gap = "1rem";
+      card.style.padding = "1.5rem";
+      card.style.border = "1px solid var(--border-color)";
+      card.style.transition = "transform var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast)";
+
+      // Efeito de hover no card
+      card.addEventListener("mouseenter", () => {
+        card.style.transform = "translateY(-4px)";
+        card.style.borderColor = "var(--color-primary)";
+        card.style.boxShadow = "var(--shadow-md)";
+      });
+      card.addEventListener("mouseleave", () => {
+        card.style.transform = "translateY(0)";
+        card.style.borderColor = "var(--border-color)";
+        card.style.boxShadow = "none";
+      });
+
+      // Indicador gradiente na borda superior
+      const gradientBar = document.createElement("div");
+      gradientBar.style.position = "absolute";
+      gradientBar.style.top = "0";
+      gradientBar.style.left = "0";
+      gradientBar.style.right = "0";
+      gradientBar.style.height = "4px";
+      gradientBar.style.background = proj.color || "linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%)";
+      card.appendChild(gradientBar);
+
+      // Conteúdo do Card
+      card.innerHTML += `
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 0.25rem;">
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <span style="font-size: 1.75rem;">${proj.icon || "📁"}</span>
+            <h4 style="font-size: 1.15rem; font-weight: 700; margin: 0; color: var(--text-main);">${proj.name}</h4>
+          </div>
+          <span style="font-size: 0.75rem; font-weight: 700; padding: 4px 8px; border-radius: 12px; background: ${totalSpent > budget && budget > 0 ? "rgba(239, 68, 68, 0.1)" : "rgba(16, 185, 129, 0.1)"}; color: ${totalSpent > budget && budget > 0 ? "var(--color-expense)" : "var(--color-success)"};">
+            ${totalSpent > budget && budget > 0 ? "Estourado" : "Sob Controle"}
+          </span>
+        </div>
+        
+        <p style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.4; margin: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; height: 2.8rem;">
+          ${proj.description || "Sem descrição informada."}
+        </p>
+
+        <div style="margin-top: auto; display: flex; flex-direction: column; gap: 0.4rem;">
+          <div style="display: flex; justify-content: space-between; font-size: 0.78rem; color: var(--text-muted);">
+            <span>Gasto: <strong>${formatCurrency(totalSpent)}</strong></span>
+            <span>Orçamento: <strong>${formatCurrency(budget)}</strong></span>
+          </div>
+          <div style="width: 100%; height: 6px; background: var(--border-color); border-radius: 3px; overflow: hidden;">
+            <div style="height: 100%; width: ${progressPct}%; background: ${totalSpent > budget && budget > 0 ? "var(--color-expense)" : "var(--color-success)"}; border-radius: 3px;"></div>
+          </div>
+          <span style="font-size: 0.72rem; align-self: flex-end; font-weight: 600; color: var(--text-muted);">${roundedProgress}% gasto</span>
+        </div>
+      `;
+
+      card.addEventListener("click", () => {
+        state.selectedProjectId = proj.id;
+        document.getElementById("projects-grid").style.display = "none";
+        document.getElementById("project-details-panel").style.display = "flex";
+        renderProjectDetails(proj.id);
+      });
+
+      gridEl.appendChild(card);
+    });
+  }
+
+  // Renderizar a tela de detalhes de um projeto
+  function renderProjectDetails(projectId) {
+    const proj = state.projects.find(p => p.id === projectId);
+    if (!proj) return;
+
+    // Atualizar Cabeçalho de Detalhes
+    document.getElementById("project-details-icon").textContent = proj.icon || "📁";
+    document.getElementById("project-details-name").textContent = proj.name;
+    document.getElementById("project-details-desc").textContent = proj.description || "Sem descrição informada.";
+
+    // Calcular Métricas
+    const expensesList = proj.expenses || [];
+    const totalSpent = expensesList.reduce((sum, item) => sum + (item.value * (item.quantity || 1)), 0);
+    const budget = proj.budget || 0;
+    const remaining = budget - totalSpent;
+    const progressPct = budget > 0 ? Math.min((totalSpent / budget) * 100, 100) : 0;
+
+    // Formatar e Atualizar as Métricas na tela
+    document.getElementById("project-val-gasto").textContent = formatCurrency(totalSpent);
+    document.getElementById("project-val-orcamento").textContent = formatCurrency(budget);
+    
+    const restanteValEl = document.getElementById("project-val-restante");
+    const statusTextEl = document.getElementById("project-val-status-text");
+
+    restanteValEl.textContent = formatCurrency(Math.abs(remaining));
+    if (remaining >= 0) {
+      restanteValEl.className = "metric-value text-success";
+      statusTextEl.textContent = "Disponível dentro do limite";
+      statusTextEl.style.color = "var(--color-success)";
+    } else {
+      restanteValEl.className = "metric-value text-danger";
+      statusTextEl.textContent = "Orçamento estourado em " + formatCurrency(Math.abs(remaining));
+      statusTextEl.style.color = "var(--color-expense)";
+    }
+
+    // Progresso
+    document.getElementById("project-progress-pct").textContent = `${progressPct.toFixed(1)}%`;
+    const progressBar = document.getElementById("project-progress-bar");
+    progressBar.style.width = `${progressPct}%`;
+    progressBar.style.background = remaining >= 0 ? "var(--color-success)" : "var(--color-expense)";
+
+    // Preencher a tabela de gastos do projeto
+    const tbody = document.getElementById("tbody-gastos-projeto");
+    const emptyState = document.getElementById("empty-gastos-projeto");
+
+    if (!tbody) return;
+    tbody.innerHTML = "";
+
+    if (expensesList.length === 0) {
+      emptyState.style.display = "block";
+    } else {
+      emptyState.style.display = "none";
+      
+      // Ordenar gastos por data decrescente
+      const sortedExpenses = [...expensesList].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+      sortedExpenses.forEach(exp => {
+        const itemTotal = exp.value * (exp.quantity || 1);
+        const row = document.createElement("tr");
+
+        row.innerHTML = `
+          <td style="font-weight: 600;">${exp.description}</td>
+          <td><span style="font-size: 0.78rem; font-weight: 700; padding: 4px 8px; border-radius: 12px; background: rgba(148, 163, 184, 0.12); color: var(--text-main);">${exp.category || "Outros"}</span></td>
+          <td>${formatDateBR(exp.date)}</td>
+          <td class="text-center" style="font-weight: 600;">${exp.quantity || 1}</td>
+          <td class="text-right">${formatCurrency(exp.value)}</td>
+          <td class="text-right" style="font-weight: 700;">${formatCurrency(itemTotal)}</td>
+          <td class="text-right">
+            <button class="action-btn btn-delete-gasto" data-id="${exp.id}" title="Excluir Gasto" style="background: none; border: none; color: var(--color-expense); cursor: pointer; padding: 4px; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; transition: background-color 0.2s;">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-svg" style="width: 16px; height: 16px;"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            </button>
+          </td>
+        `;
+
+        // Hover effect on delete button
+        const delBtn = row.querySelector(".btn-delete-gasto");
+        delBtn.addEventListener("mouseenter", () => delBtn.style.backgroundColor = "rgba(239, 68, 68, 0.08)");
+        delBtn.addEventListener("mouseleave", () => delBtn.style.backgroundColor = "transparent");
+        
+        delBtn.addEventListener("click", async () => {
+          if (await window.customConfirm(`Excluir o gasto "${exp.description}" do projeto?`)) {
+            proj.expenses = proj.expenses.filter(e => e.id !== exp.id);
+            await saveState();
+            renderProjectDetails(projectId);
+          }
+        });
+
+        tbody.appendChild(row);
+      });
+    }
+  }
+
+  // Tornar a função renderProjects disponível globalmente
+  window.renderProjects = renderProjects;
 
   // Escutar redimensionamento da janela para redesenhar o gráfico responsivamente
   let resizeTimer;
