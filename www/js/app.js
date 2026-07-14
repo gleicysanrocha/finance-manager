@@ -3821,7 +3821,7 @@ document.addEventListener("DOMContentLoaded", () => {
       document.getElementById("proj-id").value = proj.id;
       document.getElementById("proj-icon").value = proj.icon || "📁";
       document.getElementById("proj-name").value = proj.name;
-      document.getElementById("proj-budget").value = proj.budget || 0;
+      document.getElementById("proj-budget").value = proj.budget !== null && proj.budget !== undefined ? proj.budget : "";
       document.getElementById("proj-color").value = proj.color || "linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%)";
       document.getElementById("proj-desc").value = proj.description || "";
       
@@ -3850,7 +3850,8 @@ document.addEventListener("DOMContentLoaded", () => {
       const projId = document.getElementById("proj-id").value;
       const projIcon = document.getElementById("proj-icon").value || "📁";
       const projName = document.getElementById("proj-name").value;
-      const projBudget = parseFloat(document.getElementById("proj-budget").value) || 0;
+      const projBudgetVal = document.getElementById("proj-budget").value;
+      const projBudget = projBudgetVal ? parseFloat(projBudgetVal) : null;
       const projColor = document.getElementById("proj-color").value;
       const projDesc = document.getElementById("proj-desc").value;
 
@@ -4004,8 +4005,9 @@ document.addEventListener("DOMContentLoaded", () => {
     state.projects.forEach(proj => {
       const expensesList = proj.expenses || [];
       const totalSpent = expensesList.reduce((sum, item) => sum + (item.value * (item.quantity || 1)), 0);
-      const budget = proj.budget || 0;
-      const progressPct = budget > 0 ? Math.min((totalSpent / budget) * 100, 100) : 0;
+      const hasBudget = proj.budget !== undefined && proj.budget !== null && proj.budget > 0;
+      const budget = hasBudget ? proj.budget : 0;
+      const progressPct = hasBudget ? Math.min((totalSpent / budget) * 100, 100) : 0;
       const roundedProgress = progressPct.toFixed(1);
 
       // Card de projeto estilo Premium
@@ -4043,6 +4045,43 @@ document.addEventListener("DOMContentLoaded", () => {
       gradientBar.style.background = proj.color || "linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%)";
       card.appendChild(gradientBar);
 
+      // Status Badge
+      let badgeText = "Sob Controle";
+      let badgeStyle = "background: rgba(16, 185, 129, 0.1); color: var(--color-success);";
+      
+      if (hasBudget) {
+        if (totalSpent > budget) {
+          badgeText = "Estourado";
+          badgeStyle = "background: rgba(239, 68, 68, 0.1); color: var(--color-expense);";
+        }
+      } else {
+        badgeText = "Sem Limite";
+        badgeStyle = "background: rgba(148, 163, 184, 0.12); color: var(--text-muted);";
+      }
+
+      // Progress bar or plain text
+      let progressHTML = "";
+      if (hasBudget) {
+        progressHTML = `
+          <div style="display: flex; justify-content: space-between; font-size: 0.78rem; color: var(--text-muted);">
+            <span>Gasto: <strong>${formatCurrency(totalSpent)}</strong></span>
+            <span>Orçamento: <strong>${formatCurrency(budget)}</strong></span>
+          </div>
+          <div style="width: 100%; height: 6px; background: var(--border-color); border-radius: 3px; overflow: hidden;">
+            <div style="height: 100%; width: ${progressPct}%; background: ${totalSpent > budget ? "var(--color-expense)" : "var(--color-success)"}; border-radius: 3px;"></div>
+          </div>
+          <span style="font-size: 0.72rem; align-self: flex-end; font-weight: 600; color: var(--text-muted);">${roundedProgress}% gasto</span>
+        `;
+      } else {
+        progressHTML = `
+          <div style="display: flex; justify-content: space-between; font-size: 0.78rem; color: var(--text-muted);">
+            <span>Total Gasto: <strong>${formatCurrency(totalSpent)}</strong></span>
+            <span style="font-style: italic;">Sem orçamento previsto</span>
+          </div>
+          <div style="height: 6px;"></div>
+        `;
+      }
+
       // Conteúdo do Card
       card.innerHTML += `
         <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 0.25rem;">
@@ -4050,8 +4089,8 @@ document.addEventListener("DOMContentLoaded", () => {
             <span style="font-size: 1.75rem;">${proj.icon || "📁"}</span>
             <h4 style="font-size: 1.15rem; font-weight: 700; margin: 0; color: var(--text-main);">${proj.name}</h4>
           </div>
-          <span style="font-size: 0.75rem; font-weight: 700; padding: 4px 8px; border-radius: 12px; background: ${totalSpent > budget && budget > 0 ? "rgba(239, 68, 68, 0.1)" : "rgba(16, 185, 129, 0.1)"}; color: ${totalSpent > budget && budget > 0 ? "var(--color-expense)" : "var(--color-success)"};">
-            ${totalSpent > budget && budget > 0 ? "Estourado" : "Sob Controle"}
+          <span style="font-size: 0.75rem; font-weight: 700; padding: 4px 8px; border-radius: 12px; ${badgeStyle}">
+            ${badgeText}
           </span>
         </div>
         
@@ -4060,14 +4099,7 @@ document.addEventListener("DOMContentLoaded", () => {
         </p>
 
         <div style="margin-top: auto; display: flex; flex-direction: column; gap: 0.4rem;">
-          <div style="display: flex; justify-content: space-between; font-size: 0.78rem; color: var(--text-muted);">
-            <span>Gasto: <strong>${formatCurrency(totalSpent)}</strong></span>
-            <span>Orçamento: <strong>${formatCurrency(budget)}</strong></span>
-          </div>
-          <div style="width: 100%; height: 6px; background: var(--border-color); border-radius: 3px; overflow: hidden;">
-            <div style="height: 100%; width: ${progressPct}%; background: ${totalSpent > budget && budget > 0 ? "var(--color-expense)" : "var(--color-success)"}; border-radius: 3px;"></div>
-          </div>
-          <span style="font-size: 0.72rem; align-self: flex-end; font-weight: 600; color: var(--text-muted);">${roundedProgress}% gasto</span>
+          ${progressHTML}
         </div>
       `;
 
@@ -4095,33 +4127,60 @@ document.addEventListener("DOMContentLoaded", () => {
     // Calcular Métricas
     const expensesList = proj.expenses || [];
     const totalSpent = expensesList.reduce((sum, item) => sum + (item.value * (item.quantity || 1)), 0);
-    const budget = proj.budget || 0;
+    const hasBudget = proj.budget !== undefined && proj.budget !== null && proj.budget > 0;
+    const budget = hasBudget ? proj.budget : 0;
     const remaining = budget - totalSpent;
-    const progressPct = budget > 0 ? Math.min((totalSpent / budget) * 100, 100) : 0;
+    const progressPct = hasBudget ? Math.min((totalSpent / budget) * 100, 100) : 0;
 
     // Formatar e Atualizar as Métricas na tela
     document.getElementById("project-val-gasto").textContent = formatCurrency(totalSpent);
-    document.getElementById("project-val-orcamento").textContent = formatCurrency(budget);
     
+    const orcamentoValEl = document.getElementById("project-val-orcamento");
+    const orcamentoSubtextEl = orcamentoValEl.nextElementSibling; // the metric-subtext
     const restanteValEl = document.getElementById("project-val-restante");
+    const restanteTitleEl = restanteValEl.previousElementSibling; // the metric-title
     const statusTextEl = document.getElementById("project-val-status-text");
+    const progressContainer = document.getElementById("project-progress-container");
 
-    restanteValEl.textContent = formatCurrency(Math.abs(remaining));
-    if (remaining >= 0) {
-      restanteValEl.className = "metric-value text-success";
-      statusTextEl.textContent = "Disponível dentro do limite";
-      statusTextEl.style.color = "var(--color-success)";
+    if (hasBudget) {
+      orcamentoValEl.textContent = formatCurrency(budget);
+      orcamentoValEl.className = "metric-value text-primary";
+      orcamentoSubtextEl.textContent = "Meta de limite de gastos";
+      
+      restanteTitleEl.textContent = "DISPONÍVEL / RESTANTE";
+      restanteValEl.textContent = formatCurrency(Math.abs(remaining));
+      if (remaining >= 0) {
+        restanteValEl.className = "metric-value text-success";
+        statusTextEl.textContent = "Disponível dentro do limite";
+        statusTextEl.style.color = "var(--color-success)";
+      } else {
+        restanteValEl.className = "metric-value text-danger";
+        statusTextEl.textContent = "Orçamento estourado em " + formatCurrency(Math.abs(remaining));
+        statusTextEl.style.color = "var(--color-expense)";
+      }
+      
+      // Mostrar barra de progresso
+      if (progressContainer) progressContainer.style.display = "flex";
+      document.getElementById("project-progress-pct").textContent = `${progressPct.toFixed(1)}%`;
+      const progressBar = document.getElementById("project-progress-bar");
+      if (progressBar) {
+        progressBar.style.width = `${progressPct}%`;
+        progressBar.style.background = remaining >= 0 ? "var(--color-success)" : "var(--color-expense)";
+      }
     } else {
-      restanteValEl.className = "metric-value text-danger";
-      statusTextEl.textContent = "Orçamento estourado em " + formatCurrency(Math.abs(remaining));
-      statusTextEl.style.color = "var(--color-expense)";
+      orcamentoValEl.textContent = "Sem Limite";
+      orcamentoValEl.className = "metric-value text-muted";
+      orcamentoSubtextEl.textContent = "Nenhum teto definido";
+      
+      restanteTitleEl.textContent = "SALDO RESTANTE";
+      restanteValEl.textContent = "---";
+      restanteValEl.className = "metric-value text-muted";
+      statusTextEl.textContent = "Acompanhamento livre";
+      statusTextEl.style.color = "var(--text-muted)";
+      
+      // Esconder barra de progresso
+      if (progressContainer) progressContainer.style.display = "none";
     }
-
-    // Progresso
-    document.getElementById("project-progress-pct").textContent = `${progressPct.toFixed(1)}%`;
-    const progressBar = document.getElementById("project-progress-bar");
-    progressBar.style.width = `${progressPct}%`;
-    progressBar.style.background = remaining >= 0 ? "var(--color-success)" : "var(--color-expense)";
 
     // Preencher a tabela de gastos do projeto
     const tbody = document.getElementById("tbody-gastos-projeto");

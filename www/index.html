@@ -722,7 +722,7 @@
             </div>
 
             <!-- Barra de Progresso Visual de Orçamento -->
-            <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+            <div id="project-progress-container" style="display: flex; flex-direction: column; gap: 0.5rem;">
               <div style="display: flex; justify-content: space-between; font-size: 0.78rem; font-weight: 600;">
                 <span style="color: var(--text-muted);">Progresso do Orçamento Gasto</span>
                 <span id="project-progress-pct">0%</span>
@@ -1484,7 +1484,7 @@
         <div class="form-row">
           <div class="form-group">
             <label for="proj-budget">Orçamento Limite (R$)</label>
-            <input type="number" step="0.01" id="proj-budget" placeholder="5000,00" required>
+            <input type="number" step="0.01" id="proj-budget" placeholder="Ex: 5000 (Opcional)">
           </div>
           <div class="form-group">
             <label for="proj-color">Estilo de Cor</label>
