@@ -3534,7 +3534,70 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // 3. Restaurar banco de dados
+  // 3. Importar backup JSON
+  const btnImportData = document.getElementById("btn-import-data");
+  const importBackupInput = document.getElementById("import-backup-input");
+
+  if (btnImportData && importBackupInput) {
+    btnImportData.addEventListener("click", () => {
+      importBackupInput.value = "";
+      importBackupInput.click();
+    });
+
+    importBackupInput.addEventListener("change", async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = async (evt) => {
+        try {
+          const imported = JSON.parse(evt.target.result);
+
+          if (
+            typeof imported !== "object" ||
+            (!Array.isArray(imported.cards) && !Array.isArray(imported.expenses))
+          ) {
+            alert("❌ Arquivo inválido. Certifique-se de importar um backup gerado pelo Finance Manager.");
+            return;
+          }
+
+          const confirmed = await window.customConfirm(
+            "⚠️ Importar este backup irá SUBSTITUIR todos os dados atuais. Deseja continuar?"
+          );
+          if (!confirmed) return;
+
+          state.cards     = Array.isArray(imported.cards)     ? imported.cards     : state.cards;
+          state.expenses  = Array.isArray(imported.expenses)  ? imported.expenses  : state.expenses;
+          state.revenues  = Array.isArray(imported.revenues)  ? imported.revenues  : state.revenues;
+          state.orders    = Array.isArray(imported.orders)    ? imported.orders    : state.orders;
+          state.accounts  = Array.isArray(imported.accounts)  ? imported.accounts  : state.accounts;
+          state.recurring = Array.isArray(imported.recurring) ? imported.recurring : state.recurring;
+          state.goals     = Array.isArray(imported.goals)     ? imported.goals     : state.goals;
+          state.projects  = Array.isArray(imported.projects)  ? imported.projects  : (state.projects || []);
+
+          if (imported.userName)      state.userName      = imported.userName;
+          if (imported.tagline)       state.tagline       = imported.tagline;
+          if (imported.theme)         state.theme         = imported.theme;
+          if (imported.tier)          state.tier          = imported.tier;
+          if (imported.selectedCardId) state.selectedCardId = imported.selectedCardId;
+
+          await saveState();
+
+          document.body.className = `theme-${state.theme}`;
+          updateThemeIcon();
+          updateAllDashboard();
+
+          alert("✅ Backup importado com sucesso! Seus dados foram restaurados.");
+        } catch (err) {
+          console.error("Erro ao importar backup:", err);
+          alert("❌ Não foi possível ler o arquivo. Verifique se é um JSON válido.");
+        }
+      };
+      reader.readAsText(file);
+    });
+  }
+
+  // 4. Restaurar banco de dados
   const btnResetDb = document.getElementById("btn-reset-db");
   if (btnResetDb) {
     btnResetDb.addEventListener("click", async () => {

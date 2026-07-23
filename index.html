@@ -13,6 +13,11 @@
   
   <!-- Estilos CSS Customizados -->
   <link rel="stylesheet" href="css/style.css">
+
+  <!-- ConfiguraÃ§Ãµes PWA -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#4f46e5">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
 </head>
 <body class="theme-light">
   
@@ -42,8 +47,10 @@
           <li><a href="#" class="nav-item" data-tab="recorrentes"><span class="nav-icon" id="nav-icon-recurring"></span>Recorrentes</a></li>
           <li><a href="#" class="nav-item" data-tab="metas"><span class="nav-icon" id="nav-icon-goal"></span>Metas</a></li>
           <li><a href="#" class="nav-item" data-tab="contas"><span class="nav-icon" id="nav-icon-account"></span>Contas</a></li>
+          <li><a href="#" class="nav-item" data-tab="projetos"><span class="nav-icon" id="nav-icon-projects"></span>Projetos</a></li>
           <li><a href="#" class="nav-item" data-tab="relatorios"><span class="nav-icon" id="nav-icon-report"></span>RelatÃ³rios</a></li>
-          <li><a href="#" class="nav-item" data-tab="administrador"><span class="nav-icon" id="nav-icon-admin"></span>Administrador</a></li>
+          <li><a href="#" class="nav-item" data-tab="perfil"><span class="nav-icon" id="nav-icon-profile"></span>Minha Conta</a></li>
+          <li id="main-nav-admin" style="display: none;"><a href="#" class="nav-item" data-tab="administrador"><span class="nav-icon" id="nav-icon-admin"></span>Administrador</a></li>
         </ul>
       </nav>
 
@@ -55,23 +62,6 @@
         <button class="control-btn theme-toggle" id="theme-toggle-btn" aria-label="Alternar Tema">
           <!-- Ãcone Sun/Moon injetado por JS -->
         </button>
-        <div class="user-profile-badge" id="profile-menu-btn" style="position: relative;">
-          <div class="user-avatar" id="user-avatar-svg">
-            <!-- Ãcone User injetado por JS -->
-          </div>
-          <span class="user-name">UsuÃ¡rio</span>
-
-          <!-- Menu Dropdown -->
-          <div class="profile-dropdown" id="profile-dropdown">
-            <div class="dropdown-header">Gerenciar Perfil</div>
-            <button type="button" class="dropdown-item reset-btn" id="dropdown-reset-btn">
-              <span>ðŸ—‘ï¸</span> Resetar InformaÃ§Ãµes
-            </button>
-            <button type="button" class="dropdown-item logout-btn" id="dropdown-logout-btn">
-              <span>ðŸšª</span> Sair da Conta
-            </button>
-          </div>
-        </div>
       </div>
     </div>
   </header>
@@ -105,10 +95,19 @@
               <option value="11">Dezembro</option>
             </select>
             <select id="select-year" aria-label="Selecionar Ano">
+              <option value="2024">2024</option>
               <option value="2025">2025</option>
               <option value="2026" selected>2026</option>
               <option value="2027">2027</option>
               <option value="2028">2028</option>
+              <option value="2029">2029</option>
+              <option value="2030">2030</option>
+              <option value="2031">2031</option>
+              <option value="2032">2032</option>
+              <option value="2033">2033</option>
+              <option value="2034">2034</option>
+              <option value="2035">2035</option>
+              <option value="2036">2036</option>
             </select>
           </div>
         </section>
@@ -532,53 +531,102 @@
 
       <!-- VISÃƒO 5: RELATÃ“RIOS -->
       <div id="view-relatorios" class="tab-view" style="display: none;">
-        <section class="welcome-filter-section">
+        <section class="welcome-filter-section" style="align-items: center;">
           <div class="welcome-text">
             <h2>RelatÃ³rios & BI ðŸ“Š</h2>
             <p>AnÃ¡lise consolidada de receitas contra despesas e histÃ³rico financeiro anual.</p>
           </div>
+          
+          <!-- Filtros de RelatÃ³rio -->
+          <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+            <div class="date-filter-container glass-effect" style="margin: 0; padding: 0.5rem 1rem;">
+              <select id="select-report-year" aria-label="Selecionar Ano do RelatÃ³rio" style="background: transparent; border: none; color: var(--text-main); font-weight: 600; outline: none; cursor: pointer;">
+                <option value="2024">2024</option>
+                <option value="2025">2025</option>
+                <option value="2026" selected>2026</option>
+                <option value="2027">2027</option>
+                <option value="2028">2028</option>
+                <option value="2029">2029</option>
+                <option value="2030">2030</option>
+                <option value="2031">2031</option>
+                <option value="2032">2032</option>
+                <option value="2033">2033</option>
+                <option value="2034">2034</option>
+                <option value="2035">2035</option>
+                <option value="2036">2036</option>
+              </select>
+            </div>
+            <button class="action-btn btn-income" id="btn-export-csv" style="padding: 0.5rem 1rem; font-size: 0.85rem; display: flex; align-items: center; gap: 0.4rem; height: 38px;">
+              ðŸ“¥ Exportar CSV
+            </button>
+            <button class="action-btn btn-os" id="btn-print-report" style="padding: 0.5rem 1rem; font-size: 0.85rem; display: flex; align-items: center; gap: 0.4rem; height: 38px; background: var(--color-warning);">
+              ðŸ–¨ï¸ Imprimir PDF
+            </button>
+          </div>
         </section>
 
-        <!-- Grade de RelatÃ³rio -->
-        <div style="display: grid; grid-template-columns: 1fr 1.2fr; gap: 1.5rem; margin-top: 1.5rem;">
-          
-          <div class="glass-effect" style="padding: 1.5rem;">
-            <h3 id="rep-categories-title" style="font-size: 1.05rem; font-weight: 700; margin-bottom: 1.25rem;">Despesas por Categoria (Maio/2026)</h3>
-            <div style="display: flex; flex-direction: column; gap: 1.15rem;" id="reports-categories-container">
-              <!-- RenderizaÃ§Ã£o visual e responsiva das categorias de gastos -->
-              <div style="display: flex; flex-direction: column; gap: 0.35rem;">
-                <div style="display: flex; justify-content: space-between; font-size: 0.8rem; font-weight: 700;">
-                  <span>ðŸ›’ Supermercado</span>
-                  <span>R$ 258,18 (7%)</span>
-                </div>
-                <div class="progress-bar-bg" style="height: 6px; background-color: var(--border-color);"><div class="progress-bar-fill" style="width: 7%; background: var(--color-warning);"></div></div>
-              </div>
-              <div style="display: flex; flex-direction: column; gap: 0.35rem;">
-                <div style="display: flex; justify-content: space-between; font-size: 0.8rem; font-weight: 700;">
-                  <span>ðŸ¥ SaÃºde & EstÃ©tica</span>
-                  <span>R$ 120,00 (3.2%)</span>
-                </div>
-                <div class="progress-bar-bg" style="height: 6px; background-color: var(--border-color);"><div class="progress-bar-fill" style="width: 3.2%; background: var(--color-success);"></div></div>
-              </div>
-              <div style="display: flex; flex-direction: column; gap: 0.35rem;">
-                <div style="display: flex; justify-content: space-between; font-size: 0.8rem; font-weight: 700;">
-                  <span>ðŸ” AlimentaÃ§Ã£o</span>
-                  <span>R$ 230,50 (6.2%)</span>
-                </div>
-                <div class="progress-bar-bg" style="height: 6px; background-color: var(--border-color);"><div class="progress-bar-fill" style="width: 6.2%; background: var(--color-expense);"></div></div>
-              </div>
-              <div style="display: flex; flex-direction: column; gap: 0.35rem;">
-                <div style="display: flex; justify-content: space-between; font-size: 0.8rem; font-weight: 700;">
-                  <span>ðŸ“¦ Outros (Notebook)</span>
-                  <span>R$ 3.074,00 (83.5%)</span>
-                </div>
-                <div class="progress-bar-bg" style="height: 6px; background-color: var(--border-color);"><div class="progress-bar-fill" style="width: 83.5%; background: var(--color-apagar);"></div></div>
-              </div>
+        <!-- Cards de MÃ©tricas Anuais -->
+        <section class="metrics-grid" style="margin-top: 1.5rem; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));">
+          <!-- Card: Receitas Anuais -->
+          <div class="metric-card receitas glass-effect">
+            <div class="metric-header">
+              <span class="metric-title">RECEITA ANUAL</span>
+              <div class="metric-icon text-info" style="font-size: 1.2rem;">ðŸ’°</div>
             </div>
+            <div class="metric-value text-info" id="val-annual-income">R$ 0,00</div>
+            <div class="metric-subtext">Total arrecadado no ano</div>
+          </div>
+          
+          <!-- Card: Despesas Anuais -->
+          <div class="metric-card despesas glass-effect">
+            <div class="metric-header">
+              <span class="metric-title">DESPESA ANUAL</span>
+              <div class="metric-icon text-danger" style="font-size: 1.2rem;">ðŸ“‰</div>
+            </div>
+            <div class="metric-value text-danger" id="val-annual-expense">R$ 0,00</div>
+            <div class="metric-subtext">Total gasto no ano</div>
           </div>
 
+          <!-- Card: Saldo Anual -->
+          <div class="metric-card pagas glass-effect">
+            <div class="metric-header">
+              <span class="metric-title">SALDO ACUMULADO</span>
+              <div class="metric-icon text-success" id="icon-annual-balance-icon" style="font-size: 1.2rem;">ðŸ“Š</div>
+            </div>
+            <div class="metric-value text-success" id="val-annual-balance">R$ 0,00</div>
+            <div class="metric-subtext">Saldo lÃ­quido consolidado</div>
+          </div>
+
+          <!-- Card: Taxa de PoupanÃ§a -->
+          <div class="metric-card limite glass-effect">
+            <div class="metric-header">
+              <span class="metric-title">TAXA DE POUPANÃ‡A</span>
+              <div class="metric-icon text-primary" style="font-size: 1.2rem;">ðŸ“ˆ</div>
+            </div>
+            <div class="metric-value text-primary" id="val-annual-saving-rate">0.0%</div>
+            <div class="metric-subtext">Percentual de renda poupada</div>
+          </div>
+        </section>
+
+        <!-- GrÃ¡fico Anual de Fluxo de Caixa -->
+        <div class="glass-effect" style="padding: 1.5rem; margin-top: 1.5rem;">
+          <h3 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center;">
+            <span>EvoluÃ§Ã£o Mensal (Receitas vs Despesas)</span>
+            <span style="font-size: 0.8rem; font-weight: normal; color: var(--text-muted); display: flex; gap: 1rem;">
+              <span style="display: flex; align-items: center; gap: 0.3rem;"><span style="display: inline-block; width: 12px; height: 12px; background: var(--color-success); border-radius: 2px;"></span> Receitas</span>
+              <span style="display: flex; align-items: center; gap: 0.3rem;"><span style="display: inline-block; width: 12px; height: 12px; background: var(--color-expense); border-radius: 2px;"></span> Despesas</span>
+            </span>
+          </h3>
+          <div id="svg-annual-chart-container" style="width: 100%; height: 260px; display: flex; align-items: center; justify-content: center; overflow-x: auto;">
+            <!-- O grÃ¡fico de barras SVG dinÃ¢mico serÃ¡ injetado aqui -->
+          </div>
+        </div>
+
+        <!-- Grade de RelatÃ³rio (Tabela e Categorias) -->
+        <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 1.5rem; margin-top: 1.5rem;" class="report-details-grid">
+          
           <div class="glass-effect" style="padding: 1.5rem;">
-            <h3 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 1.25rem;">EvoluÃ§Ã£o de Fluxo de Caixa Anual</h3>
+            <h3 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 1.25rem;">Fluxo de Caixa Mensal</h3>
             <div class="table-wrapper">
               <table class="premium-table">
                 <thead>
@@ -589,41 +637,129 @@
                     <th>Saldo LÃ­quido</th>
                   </tr>
                 </thead>
-                <tbody>
-                  <tr>
-                    <td>Janeiro / 2026</td>
-                    <td class="text-success">R$ 5.500,00</td>
-                    <td class="text-danger">R$ 3.820,00</td>
-                    <td class="text-success" style="font-weight: 700;">+ R$ 1.680,00</td>
-                  </tr>
-                  <tr>
-                    <td>Fevereiro / 2026</td>
-                    <td class="text-success">R$ 6.200,00</td>
-                    <td class="text-danger">R$ 4.100,00</td>
-                    <td class="text-success" style="font-weight: 700;">+ R$ 2.100,00</td>
-                  </tr>
-                  <tr>
-                    <td>MarÃ§o / 2026</td>
-                    <td class="text-success">R$ 5.800,00</td>
-                    <td class="text-danger">R$ 3.900,00</td>
-                    <td class="text-success" style="font-weight: 700;">+ R$ 1.900,00</td>
-                  </tr>
-                  <tr>
-                    <td>Abril / 2026</td>
-                    <td class="text-success">R$ 6.000,00</td>
-                    <td class="text-danger">R$ 4.250,00</td>
-                    <td class="text-success" style="font-weight: 700;">+ R$ 1.750,00</td>
-                  </tr>
-                  <tr style="background: rgba(16, 185, 129, 0.04);">
-                    <td><strong id="rep-month-label">Maio / 2026 (Atual)</strong></td>
-                    <td class="text-success" id="rep-income-current">R$ 6.000,00</td>
-                    <td class="text-danger" id="rep-expense-current">R$ 3.682,68</td>
-                    <td class="text-success" id="rep-net-current" style="font-weight: 700;">+ R$ 2.317,32</td>
-                  </tr>
+                <tbody id="reports-annual-table-body">
+                  <!-- Injetado dinamicamente via JS -->
                 </tbody>
               </table>
             </div>
           </div>
+
+          <div class="glass-effect" style="padding: 1.5rem;">
+            <h3 id="rep-categories-title" style="font-size: 1.05rem; font-weight: 700; margin-bottom: 1.25rem;">Despesas por Categoria</h3>
+            <div style="display: flex; flex-direction: column; gap: 1.15rem;" id="reports-categories-container">
+              <!-- Injetado dinamicamente via JS -->
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- VISÃƒO 8: PROJETOS INDEPENDENTES -->
+      <div id="view-projetos" class="tab-view" style="display: none;">
+        <section class="welcome-filter-section">
+          <div class="welcome-text">
+            <h2>Projetos Independentes ðŸ“</h2>
+            <p>Controle gastos de reformas, eventos ou viagens de forma isolada, sem afetar seu saldo mensal.</p>
+          </div>
+          <button class="action-btn btn-expense" style="padding: 0.6rem 1.25rem; font-size: 0.88rem; width: auto;" id="btn-novo-projeto">
+            + Novo Projeto
+          </button>
+        </section>
+
+        <!-- SeÃ§Ã£o Principal de Projetos -->
+        <div id="projects-main-layout" style="margin-top: 1.5rem;">
+          
+          <!-- Grade de Projetos (Grade de CartÃµes) -->
+          <section id="projects-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem;">
+            <!-- Injetado dinamicamente por JS -->
+          </section>
+
+          <!-- Detalhes do Projeto Selecionado -->
+          <section id="project-details-panel" class="glass-effect" style="display: none; padding: 1.5rem; border-radius: var(--radius-lg); flex-direction: column; gap: 1.5rem;">
+            <!-- CabeÃ§alho de Detalhes -->
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1.25rem;">
+              <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                <button type="button" class="action-btn btn-card" id="btn-voltar-projetos" style="width: fit-content; padding: 0.4rem 0.85rem; font-size: 0.8rem; background: var(--border-color); border: none; color: var(--text-main); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.35rem;">
+                  <span>â†</span> Voltar aos Projetos
+                </button>
+                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                  <span id="project-details-icon" style="font-size: 2rem;"></span>
+                  <h3 id="project-details-name" style="font-size: 1.5rem; font-weight: 700;">Nome do Projeto</h3>
+                </div>
+                <p id="project-details-desc" style="font-size: 0.88rem; color: var(--text-muted); margin: 0;"></p>
+              </div>
+              
+              <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+                <button type="button" class="action-btn btn-expense" id="btn-novo-gasto-projeto" style="padding: 0.5rem 1rem; font-size: 0.85rem; display: flex; align-items: center; gap: 0.4rem; height: 38px;">
+                  + Adicionar Gasto
+                </button>
+                <button type="button" class="action-btn btn-card" id="btn-editar-projeto" style="padding: 0.5rem 1rem; font-size: 0.85rem; display: flex; align-items: center; gap: 0.4rem; height: 38px; background: linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%); border: none;">
+                  âœï¸ Editar Projeto
+                </button>
+                <button type="button" class="action-btn btn-card" id="btn-deletar-projeto" style="padding: 0.5rem 1rem; font-size: 0.85rem; display: flex; align-items: center; gap: 0.4rem; height: 38px; background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%); border: none;">
+                  ðŸ—‘ï¸ Excluir Projeto
+                </button>
+              </div>
+            </div>
+
+            <!-- MÃ©tricas do Projeto -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+              <div class="metric-card despesas glass-effect" style="margin: 0; background: rgba(239, 68, 68, 0.04); border: 1px solid rgba(239, 68, 68, 0.1);">
+                <span class="metric-title">TOTAL GASTO</span>
+                <div class="metric-value text-danger" id="project-val-gasto">R$ 0,00</div>
+                <div class="metric-subtext">Acumulado do projeto</div>
+              </div>
+              <div class="metric-card limite glass-effect" style="margin: 0; background: rgba(79, 70, 229, 0.04); border: 1px solid rgba(79, 70, 229, 0.1);">
+                <span class="metric-title">ORÃ‡AMENTO PREVISTO</span>
+                <div class="metric-value text-primary" id="project-val-orcamento">R$ 0,00</div>
+                <div class="metric-subtext">Meta de limite de gastos</div>
+              </div>
+              <div class="metric-card pagas glass-effect" style="margin: 0; background: rgba(16, 185, 129, 0.04); border: 1px solid rgba(16, 185, 129, 0.1);">
+                <span class="metric-title">DISPONÃVEL / RESTANTE</span>
+                <div class="metric-value text-success" id="project-val-restante">R$ 0,00</div>
+                <div class="metric-subtext" id="project-val-status-text">Dentro do limite</div>
+              </div>
+            </div>
+
+            <!-- Barra de Progresso Visual de OrÃ§amento -->
+            <div id="project-progress-container" style="display: flex; flex-direction: column; gap: 0.5rem;">
+              <div style="display: flex; justify-content: space-between; font-size: 0.78rem; font-weight: 600;">
+                <span style="color: var(--text-muted);">Progresso do OrÃ§amento Gasto</span>
+                <span id="project-progress-pct">0%</span>
+              </div>
+              <div style="width: 100%; height: 10px; background: var(--border-color); border-radius: var(--radius-full); overflow: hidden;">
+                <div id="project-progress-bar" style="height: 100%; width: 0%; background: var(--color-expense); transition: width 0.3s ease; border-radius: var(--radius-full);"></div>
+              </div>
+            </div>
+
+            <!-- Tabela de Itens de Gasto -->
+            <div style="display: flex; flex-direction: column; gap: 1rem; margin-top: 0.5rem;">
+              <h4 style="font-size: 1.05rem; font-weight: 700; margin: 0;">Itens / Gastos LanÃ§ados</h4>
+              
+              <div class="table-wrapper">
+                <table class="premium-table">
+                  <thead>
+                    <tr>
+                      <th>DescriÃ§Ã£o</th>
+                      <th>Categoria</th>
+                      <th>Data</th>
+                      <th class="text-center">Qtd</th>
+                      <th class="text-right">Valor UnitÃ¡rio</th>
+                      <th class="text-right">Total</th>
+                      <th class="text-right">AÃ§Ã£o</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tbody-gastos-projeto">
+                    <!-- Injetado por JS -->
+                  </tbody>
+                </table>
+                <div class="empty-state-container" id="empty-gastos-projeto" style="display: none;">
+                  <div style="font-size: 3rem; text-align: center; margin-bottom: 0.5rem;">ðŸ§±</div>
+                  <p>Nenhum gasto registrado neste projeto ainda.</p>
+                </div>
+              </div>
+            </div>
+          </section>
 
         </div>
       </div>
@@ -739,6 +875,92 @@
               <button class="action-btn btn-card" id="btn-reset-db" style="justify-content: flex-start; background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%); box-shadow: 0 4px 14px rgba(239, 68, 68, 0.25);">
                 ðŸ—‘ï¸ Restaurar Banco de Dados
               </button>
+            </div>
+          </div>
+
+        </section>
+      </div>
+
+      <!-- VISÃƒO 7: PERFIL & LICENÃ‡A -->
+      <div id="view-perfil" class="tab-view" style="display: none;">
+        <section class="welcome-filter-section">
+          <div class="welcome-text">
+            <h2>Minha Conta & LicenÃ§a ðŸ‘‘</h2>
+            <p>Gerencie seus dados de usuÃ¡rio, seguranÃ§a e consulte o status da sua licenÃ§a.</p>
+          </div>
+        </section>
+
+        <section class="mid-dashboard-grid" style="grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); margin-top: 1.5rem; gap: 1.5rem; display: grid;">
+          
+          <!-- Card de InformaÃ§Ãµes do UsuÃ¡rio -->
+          <div class="glass-effect" style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem;">
+            <h3 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 0.25rem; display: flex; align-items: center; gap: 0.5rem;">
+              ðŸ‘¤ InformaÃ§Ãµes Pessoais
+            </h3>
+            
+            <!-- Foto de Perfil com upload -->
+            <div style="display: flex; align-items: center; gap: 1.25rem; margin-top: 0.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1.25rem;">
+              <div id="profile-photo-container" style="position: relative; width: 68px; height: 68px; border-radius: 50%; overflow: hidden; background: rgba(148, 163, 184, 0.1); border: 2px solid var(--border-color); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: var(--transition-fast);" title="Clique para alterar a foto">
+                <!-- Imagem carregada via JS -->
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+                <button type="button" id="btn-change-photo" style="background: var(--border-color); border: none; font-size: 0.78rem; font-weight: 700; padding: 6px 12px; border-radius: var(--radius-sm); cursor: pointer; color: var(--text-main); transition: var(--transition-fast);">
+                  Alterar Foto
+                </button>
+                <input type="file" id="input-profile-photo" accept="image/*" style="display: none;">
+                <span style="font-size: 0.68rem; color: var(--text-muted);">Tamanho mÃ¡ximo: 500KB.</span>
+              </div>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 1rem; margin-top: 0.5rem;">
+              <div>
+                <label style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Nome do UsuÃ¡rio</label>
+                <div id="profile-display-name" style="font-size: 1.1rem; font-weight: 700; color: var(--text-main); margin-top: 0.15rem;">UsuÃ¡rio</div>
+              </div>
+              <div>
+                <label style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">E-mail Cadastrado</label>
+                <div id="profile-display-email" style="font-size: 1rem; color: var(--text-main); margin-top: 0.15rem;">Modo Local (Offline)</div>
+              </div>
+              <div>
+                <label style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">ID do UsuÃ¡rio (UID)</label>
+                <div id="profile-display-uid" style="font-size: 0.8rem; font-family: monospace; background: rgba(148, 163, 184, 0.1); padding: 6px 10px; border-radius: 6px; word-break: break-all; color: var(--text-muted); margin-top: 0.25rem;">offline</div>
+              </div>
+              <div>
+                <label style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Tipo de Armazenamento</label>
+                <div id="profile-display-sync" style="font-size: 0.88rem; font-weight: 600; color: var(--color-warning); margin-top: 0.15rem; display: flex; align-items: center; gap: 0.35rem;">
+                  <span>ðŸ“´</span> Armazenamento Local
+                </div>
+              </div>
+            </div>
+
+            <div style="display: flex; gap: 0.75rem; margin-top: 1.5rem; border-top: 1px solid var(--border-color); padding-top: 1.25rem;">
+              <button type="button" class="action-btn btn-card" id="dropdown-logout-btn" style="flex: 1; justify-content: center; background: linear-gradient(135deg, #475569 0%, #64748b 100%); box-shadow: 0 4px 14px rgba(100, 116, 139, 0.25);">
+                ðŸšª Sair da Conta
+              </button>
+              <button type="button" class="action-btn btn-card" id="dropdown-reset-btn" style="flex: 1; justify-content: center; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); box-shadow: 0 4px 14px rgba(239, 68, 68, 0.25);">
+                ðŸ—‘ï¸ Resetar Dados
+              </button>
+            </div>
+          </div>
+
+          <!-- Card de InformaÃ§Ãµes da LicenÃ§a -->
+          <div class="glass-effect" style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem;">
+            <h3 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 0.25rem; display: flex; align-items: center; gap: 0.5rem;">
+              ðŸ‘‘ Status da LicenÃ§a
+            </h3>
+            
+            <div id="profile-tier-badge-container" style="margin-top: 0.5rem;">
+              <span id="profile-tier-badge" style="background: linear-gradient(135deg, #64748b 0%, #94a3b8 100%); color: white; padding: 6px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: 800; display: inline-block;">PLANO GRATUITO</span>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.5rem; font-size: 0.85rem; color: var(--text-muted); line-height: 1.5;">
+              <div id="profile-tier-limits">
+                <!-- Limites do plano mostrados aqui -->
+              </div>
+            </div>
+
+            <div id="profile-upgrade-action-container" style="margin-top: auto; padding-top: 1rem;">
+              <!-- BotÃ£o de Upgrade ou Mensagem de Sucesso -->
             </div>
           </div>
 
@@ -962,10 +1184,11 @@
   <dialog class="premium-modal glass-effect" id="modal-conta-dialog">
     <div class="modal-content">
       <header class="modal-header">
-        <h3>Vincular Nova Conta</h3>
+        <h3 id="modal-conta-title">Vincular Nova Conta</h3>
         <button class="modal-close-btn" id="close-modal-conta" aria-label="Fechar">&times;</button>
       </header>
       <form id="form-nova-conta" method="dialog">
+        <input type="hidden" id="acc-id">
         <div class="form-row">
           <div class="form-group">
             <label for="acc-name">Nome do Banco / Conta</label>
@@ -1228,6 +1451,117 @@
     </div>
   </dialog>
 
+  <!-- 9. Modal Novo/Editar Projeto -->
+  <dialog class="premium-modal glass-effect" id="modal-projeto-dialog">
+    <div class="modal-content">
+      <header class="modal-header">
+        <h3 id="modal-projeto-title">Novo Projeto</h3>
+        <button class="modal-close-btn" id="close-modal-projeto" aria-label="Fechar">&times;</button>
+      </header>
+      <form id="form-novo-projeto" method="dialog">
+        <input type="hidden" id="proj-id">
+        <div class="form-row" style="grid-template-columns: 100px 1fr;">
+          <div class="form-group">
+            <label for="proj-icon">Ãcone/Emoji</label>
+            <input type="text" id="proj-icon" maxlength="2" placeholder="ðŸ“" style="text-align: center; font-size: 1.25rem;" required>
+          </div>
+          <div class="form-group">
+            <label for="proj-name">Nome do Projeto</label>
+            <input type="text" id="proj-name" placeholder="Ex: Reforma do Quarto" required>
+          </div>
+        </div>
+        <div class="form-group" style="margin-top: -0.25rem;">
+          <label>SugestÃµes de Ãcones rÃ¡pidos</label>
+          <div class="emoji-suggestions">
+            <button type="button" class="emoji-sug-btn">ðŸ“</button>
+            <button type="button" class="emoji-sug-btn">ðŸ”¨</button>
+            <button type="button" class="emoji-sug-btn">ðŸ›ï¸</button>
+            <button type="button" class="emoji-sug-btn">âœˆï¸</button>
+            <button type="button" class="emoji-sug-btn">ðŸŽ¨</button>
+            <button type="button" class="emoji-sug-btn">ðŸŽ‰</button>
+            <button type="button" class="emoji-sug-btn">ðŸš—</button>
+            <button type="button" class="emoji-sug-btn">ðŸ </button>
+            <button type="button" class="emoji-sug-btn">ðŸ’»</button>
+            <button type="button" class="emoji-sug-btn">ðŸŽ“</button>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="proj-budget">OrÃ§amento Limite (R$)</label>
+            <input type="number" step="0.01" id="proj-budget" placeholder="Ex: 5000 (Opcional)">
+          </div>
+          <div class="form-group">
+            <label for="proj-color">Estilo de Cor</label>
+            <select id="proj-color" required>
+              <option value="linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%)" selected>Azul Indigo & Ciano</option>
+              <option value="linear-gradient(135deg, #097d52 0%, #0fb77a 100%)">Verde Esmeralda</option>
+              <option value="linear-gradient(135deg, #f59e0b 0%, #e11d48 100%)">PÃ´r do Sol Flamejante</option>
+              <option value="linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)">Deep Purple Night</option>
+              <option value="linear-gradient(135deg, #0f172a 0%, #334155 100%)">Slate Premium Black</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="proj-desc">DescriÃ§Ã£o / Detalhes</label>
+          <input type="text" id="proj-desc" placeholder="Ex: Reforma do quarto principal, materiais, pintura e mÃ³veis.">
+        </div>
+        <footer class="modal-footer">
+          <button type="button" class="btn-cancel" id="btn-cancelar-projeto">Cancelar</button>
+          <button type="submit" class="btn-submit btn-expense-submit" id="btn-salvar-projeto">Criar Projeto</button>
+        </footer>
+      </form>
+    </div>
+  </dialog>
+
+  <!-- 10. Modal Novo Gasto do Projeto -->
+  <dialog class="premium-modal glass-effect" id="modal-gasto-projeto-dialog">
+    <div class="modal-content">
+      <header class="modal-header">
+        <h3 id="modal-gasto-projeto-title">Adicionar Gasto ao Projeto</h3>
+        <button class="modal-close-btn" id="close-modal-gasto-projeto" aria-label="Fechar">&times;</button>
+      </header>
+      <form id="form-gasto-projeto" method="dialog">
+        <input type="hidden" id="pe-id">
+        <div class="form-group">
+          <label for="pe-desc">DescriÃ§Ã£o do Gasto</label>
+          <input type="text" id="pe-desc" placeholder="Ex: 5 Sacos de Cimento" required>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="pe-val">Valor UnitÃ¡rio (R$)</label>
+            <input type="number" step="0.01" id="pe-val" placeholder="0,00" required>
+          </div>
+          <div class="form-group">
+            <label for="pe-qty">Quantidade</label>
+            <input type="number" min="1" id="pe-qty" value="1" required>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="pe-category">Categoria</label>
+            <select id="pe-category" required>
+              <option value="Material" selected>ðŸ§± Material de ConstruÃ§Ã£o</option>
+              <option value="ServiÃ§o">ðŸ› ï¸ MÃ£o de Obra / ServiÃ§o</option>
+              <option value="MÃ³veis">ðŸª‘ MÃ³veis & DecoraÃ§Ã£o</option>
+              <option value="ElÃ©trica">âš¡ ElÃ©trica & IluminaÃ§Ã£o</option>
+              <option value="LogÃ­stica">ðŸšš Frete / LogÃ­stica</option>
+              <option value="Ferramentas">ðŸ”§ Ferramentas</option>
+              <option value="Outros">ðŸ“¦ Outros</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="pe-date">Data do Gasto</label>
+            <input type="date" id="pe-date" required>
+          </div>
+        </div>
+        <footer class="modal-footer">
+          <button type="button" class="btn-cancel" id="btn-cancelar-gasto-projeto">Cancelar</button>
+          <button type="submit" class="btn-submit btn-expense-submit">Adicionar Gasto</button>
+        </footer>
+      </form>
+    </div>
+  </dialog>
+
   <!-- TELA DE LOGIN / AUTENTICAÃ‡ÃƒO (FIREBASE) -->
   <div id="auth-overlay" class="auth-overlay" style="display: none;">
     <div class="auth-card">
@@ -1271,13 +1605,77 @@
     </div>
   </div>
 
+  <!-- BARRA DE NAVEGAÃ‡ÃƒO INFERIOR PARA MOBILE -->
+  <nav class="bottom-nav">
+    <ul class="bottom-nav-list">
+      <li>
+        <a href="#" class="bottom-nav-item active" data-tab="dashboard">
+          <span class="bottom-nav-icon" id="bottom-icon-budget"></span>
+          <span>OrÃ§amentos</span>
+        </a>
+      </li>
+      <li>
+        <a href="#" class="bottom-nav-item" data-tab="recorrentes">
+          <span class="bottom-nav-icon" id="bottom-icon-recurring"></span>
+          <span>Recorrentes</span>
+        </a>
+      </li>
+      <li>
+        <a href="#" class="bottom-nav-item" data-tab="metas">
+          <span class="bottom-nav-icon" id="bottom-icon-goal"></span>
+          <span>Metas</span>
+        </a>
+      </li>
+      <li>
+        <a href="#" class="bottom-nav-item" data-tab="contas">
+          <span class="bottom-nav-icon" id="bottom-icon-account"></span>
+          <span>Contas</span>
+        </a>
+      </li>
+      <li>
+        <a href="#" class="bottom-nav-item" data-tab="relatorios">
+          <span class="bottom-nav-icon" id="bottom-icon-report"></span>
+          <span>RelatÃ³rios</span>
+        </a>
+      </li>
+      <li>
+        <a href="#" class="bottom-nav-item" data-tab="projetos">
+          <span class="bottom-nav-icon" id="bottom-icon-projects"></span>
+          <span>Projetos</span>
+        </a>
+      </li>
+      <li>
+        <a href="#" class="bottom-nav-item" data-tab="perfil">
+          <span class="bottom-nav-icon" id="bottom-icon-profile"></span>
+          <span>Perfil</span>
+        </a>
+      </li>
+      <li id="bottom-nav-admin" style="display: none;">
+        <a href="#" class="bottom-nav-item" data-tab="administrador">
+          <span class="bottom-nav-icon" id="bottom-icon-admin"></span>
+          <span>Admin</span>
+        </a>
+      </li>
+    </ul>
+  </nav>
   <!-- SCRIPTS DO APLICATIVO -->
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
   <script src="js/icons.js"></script>
   <script src="js/data.js"></script>
+  <script src="js/firebase-config.js"></script>
+  <script src="js/ui-helpers.js"></script>
+  <script src="js/auth-logic.js"></script>
   <script src="js/app.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then(reg => console.log('Service Worker registrado com sucesso:', reg.scope))
+          .catch(err => console.log('Erro ao registrar Service Worker:', err));
+      });
+    }
+  </script>
 </body>
 </html>
-
