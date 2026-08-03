@@ -241,26 +241,29 @@ document.addEventListener("DOMContentLoaded", () => {
     const storedProjects = getLocalValue("projects");
     const storedUserName = getLocalValue("username");
     const storedTagline = getLocalValue("tagline");
-    if (storedCards && storedExpenses && storedRevenues && storedOrders) {
-      state.cards = JSON.parse(storedCards);
-      state.expenses = JSON.parse(storedExpenses);
-      state.revenues = JSON.parse(storedRevenues);
-      state.orders = JSON.parse(storedOrders);
-    } else {
-      state.cards = [];
-      state.expenses = [];
-      state.revenues = [];
-      state.orders = [];
-    }
+    const hasAnyLocalData = storedCards !== null || storedExpenses !== null || storedRevenues !== null || storedOrders !== null || storedAccounts !== null;
 
-    state.accounts = storedAccounts ? JSON.parse(storedAccounts) : [];
-    state.recurring = storedRecurring ? JSON.parse(storedRecurring) : [];
-    state.goals = storedGoals ? JSON.parse(storedGoals) : [];
-    
-    if (storedProjects) {
-      state.projects = JSON.parse(storedProjects);
+    if (hasAnyLocalData) {
+      state.cards = storedCards ? JSON.parse(storedCards) : [];
+      state.expenses = storedExpenses ? JSON.parse(storedExpenses) : [];
+      state.revenues = storedRevenues ? JSON.parse(storedRevenues) : [];
+      state.orders = storedOrders ? JSON.parse(storedOrders) : [];
+      state.accounts = storedAccounts ? JSON.parse(storedAccounts) : [];
+      state.recurring = storedRecurring ? JSON.parse(storedRecurring) : [];
+      state.goals = storedGoals ? JSON.parse(storedGoals) : [];
+      state.projects = storedProjects ? JSON.parse(storedProjects) : (window.DEFAULT_PROJECTS ? JSON.parse(JSON.stringify(window.DEFAULT_PROJECTS)) : []);
     } else {
+      // Primeiro acesso no modo Web: carregar dados padrão demonstrativos para exibição imediata
+      state.cards = window.DEFAULT_CARDS ? JSON.parse(JSON.stringify(window.DEFAULT_CARDS)) : [];
+      state.expenses = window.DEFAULT_EXPENSES ? JSON.parse(JSON.stringify(window.DEFAULT_EXPENSES)) : [];
+      state.revenues = window.DEFAULT_REVENUES ? JSON.parse(JSON.stringify(window.DEFAULT_REVENUES)) : [];
+      state.orders = window.DEFAULT_ORDERS ? JSON.parse(JSON.stringify(window.DEFAULT_ORDERS)) : [];
+      state.accounts = window.DEFAULT_ACCOUNTS ? JSON.parse(JSON.stringify(window.DEFAULT_ACCOUNTS)) : [];
+      state.recurring = window.DEFAULT_RECURRING ? JSON.parse(JSON.stringify(window.DEFAULT_RECURRING)) : [];
+      state.goals = window.DEFAULT_GOALS ? JSON.parse(JSON.stringify(window.DEFAULT_GOALS)) : [];
       state.projects = window.DEFAULT_PROJECTS ? JSON.parse(JSON.stringify(window.DEFAULT_PROJECTS)) : [];
+      
+      saveState();
     }
     
     state.userName = storedUserName || currentUser?.displayName || (currentUser ? "Usuário" : "Usuário");
