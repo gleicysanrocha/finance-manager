@@ -71,9 +71,11 @@ async function getCloudConfig() {
 async function initFirebase() {
   const config = await getCloudConfig();
   if (!config) {
-    console.log("Firebase não configurado. Continuando no modo local (offline).");
+    console.log("Firebase não configurado. Continuando no Modo Web (Standalone / Local).");
     updateSyncIndicator("offline");
-    showAuthOverlay();
+    if (window.loadState) {
+      await window.loadState();
+    }
     return false;
   }
   
@@ -108,7 +110,6 @@ async function initFirebase() {
           dropdownLogoutBtn.innerHTML = `<span>🔑</span> Entrar / Conectar`;
         }
         await loadState();
-        showAuthOverlay();
       }
       
       if (window.updateAdminUI) {
@@ -120,7 +121,9 @@ async function initFirebase() {
   } catch (err) {
     console.error("Erro ao inicializar Firebase:", err);
     updateSyncIndicator("error");
-    showAuthOverlay();
+    if (window.loadState) {
+      await window.loadState();
+    }
     return false;
   }
 }
