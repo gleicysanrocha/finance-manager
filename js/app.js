@@ -241,19 +241,17 @@ document.addEventListener("DOMContentLoaded", () => {
       state.accounts = storedAccounts ? JSON.parse(storedAccounts) : [];
       state.recurring = storedRecurring ? JSON.parse(storedRecurring) : [];
       state.goals = storedGoals ? JSON.parse(storedGoals) : [];
-      state.projects = storedProjects ? JSON.parse(storedProjects) : (window.DEFAULT_PROJECTS ? JSON.parse(JSON.stringify(window.DEFAULT_PROJECTS)) : []);
+      state.projects = storedProjects ? JSON.parse(storedProjects) : [];
     } else {
-      // Primeiro acesso no modo Web: carregar dados padrão demonstrativos para exibição imediata
-      state.cards = window.DEFAULT_CARDS ? JSON.parse(JSON.stringify(window.DEFAULT_CARDS)) : [];
-      state.expenses = window.DEFAULT_EXPENSES ? JSON.parse(JSON.stringify(window.DEFAULT_EXPENSES)) : [];
-      state.revenues = window.DEFAULT_REVENUES ? JSON.parse(JSON.stringify(window.DEFAULT_REVENUES)) : [];
-      state.orders = window.DEFAULT_ORDERS ? JSON.parse(JSON.stringify(window.DEFAULT_ORDERS)) : [];
-      state.accounts = window.DEFAULT_ACCOUNTS ? JSON.parse(JSON.stringify(window.DEFAULT_ACCOUNTS)) : [];
-      state.recurring = window.DEFAULT_RECURRING ? JSON.parse(JSON.stringify(window.DEFAULT_RECURRING)) : [];
-      state.goals = window.DEFAULT_GOALS ? JSON.parse(JSON.stringify(window.DEFAULT_GOALS)) : [];
-      state.projects = window.DEFAULT_PROJECTS ? JSON.parse(JSON.stringify(window.DEFAULT_PROJECTS)) : [];
-      
-      saveState();
+      // Sem dados gravados: manter campos limpos sem forçar dados demonstrativos mockados
+      state.cards = [];
+      state.expenses = [];
+      state.revenues = [];
+      state.orders = [];
+      state.accounts = [];
+      state.recurring = [];
+      state.goals = [];
+      state.projects = [];
     }
     
     state.userName = storedUserName || currentUser?.displayName || (currentUser ? "Usuário" : "Usuário");
