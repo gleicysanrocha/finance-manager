@@ -107,6 +107,39 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       }
     });
+  const btnSetupFirebase = document.getElementById("btn-setup-firebase-config");
+  if (btnSetupFirebase) {
+    btnSetupFirebase.addEventListener("click", async () => {
+      const currentConfigStr = localStorage.getItem("finance_manager_firebase_config") || "";
+      const configJSON = prompt("Cole o JSON de configuração do seu projeto Firebase (firebaseConfig) abaixo para conectar sua conta:", currentConfigStr);
+      if (configJSON) {
+        try {
+          let parsed = null;
+          if (configJSON.trim().startsWith("{")) {
+            parsed = JSON.parse(configJSON.trim());
+          } else {
+            const match = configJSON.match(/\{[\s\S]*\}/);
+            if (match) {
+              parsed = JSON.parse(match[0]);
+            }
+          }
+          if (parsed && (parsed.apiKey || parsed.projectId)) {
+            localStorage.setItem("finance_manager_firebase_config", JSON.stringify(parsed));
+            const ok = await window.initFirebase();
+            if (ok) {
+              await window.customAlert("🎉 Conexão do Firebase configurada com sucesso! Você já pode entrar na sua conta.");
+              showAuthOverlay();
+            } else {
+              await window.customAlert("Não foi possível conectar com as chaves informadas. Verifique as credenciais.");
+            }
+          } else {
+            await window.customAlert("Objeto JSON inválido. Verifique o formato do firebaseConfig.");
+          }
+        } catch (e) {
+          await window.customAlert("Erro ao ler o formato da configuração. Certifique-se de colar um JSON válido.");
+        }
+      }
+    });
   }
 
   if (authForm) {
@@ -121,7 +154,32 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       if (!auth) {
-        setAuthFeedback("O serviço de acesso ainda não está disponível.");
+        const configJSON = prompt("O Firebase ainda não está configurado para este site.\n\nCole o JSON de configuração do seu projeto do Firebase (ou objeto firebaseConfig) abaixo para conectar à sua conta:");
+        if (configJSON) {
+          try {
+            let parsed = null;
+            if (configJSON.trim().startsWith("{")) {
+              parsed = JSON.parse(configJSON.trim());
+            } else {
+              // Tentar extrair de firebaseConfig = { ... }
+              const match = configJSON.match(/\{[\s\S]*\}/);
+              if (match) {
+                parsed = JSON.parse(match[0]);
+              }
+            }
+            if (parsed && (parsed.apiKey || parsed.projectId)) {
+              localStorage.setItem("finance_manager_firebase_config", JSON.stringify(parsed));
+              const ok = await window.initFirebase();
+              if (ok) {
+                setAuthFeedback("Firebase configurado com sucesso! Tente entrar novamente.", "success");
+                return;
+              }
+            }
+          } catch (err) {
+            console.error("Erro ao analisar configuração do Firebase:", err);
+          }
+        }
+        setAuthFeedback("É necessário configurar as chaves do Firebase para conectar à conta em nuvem.");
         return;
       }
 
