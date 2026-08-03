@@ -168,30 +168,22 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function getLocalValue(suffix) {
-    const newKey = getLocalStorageKey(suffix);
-    const scopedValue = localStorage.getItem(newKey);
-    if (scopedValue !== null) return scopedValue;
-
-    // Fallback de migração automática
     const owner = currentUser?.uid || "offline";
-    const oldKey = `gley-finance-${owner}-${suffix}`;
-    const oldScopedValue = localStorage.getItem(oldKey);
-    if (oldScopedValue !== null) {
-      localStorage.setItem(newKey, oldScopedValue);
-      localStorage.removeItem(oldKey);
-      return oldScopedValue;
-    }
+    const keysToTry = [
+      `finance-manager-${owner}-${suffix}`,
+      `gley-finance-${owner}-${suffix}`,
+      `finance-manager-offline-${suffix}`,
+      `gley-finance-offline-${suffix}`,
+      `finance-manager-${suffix}`,
+      `gley-finance-${suffix}`,
+      suffix
+    ];
 
-    if (!currentUser) {
-      const oldGlobalKey = `gley-finance-${suffix}`;
-      const oldGlobalValue = localStorage.getItem(oldGlobalKey);
-      if (oldGlobalValue !== null) {
-        const newGlobalKey = `finance-manager-${suffix}`;
-        localStorage.setItem(newGlobalKey, oldGlobalValue);
-        localStorage.removeItem(oldGlobalKey);
-        return oldGlobalValue;
+    for (const key of keysToTry) {
+      const val = localStorage.getItem(key);
+      if (val !== null && val !== undefined && val !== "") {
+        return val;
       }
-      return localStorage.getItem(`finance-manager-${suffix}`);
     }
     return null;
   }
@@ -214,10 +206,8 @@ document.addEventListener("DOMContentLoaded", () => {
       localStorage.removeItem(getLocalStorageKey(suffix));
       const owner = currentUser?.uid || "offline";
       localStorage.removeItem(`gley-finance-${owner}-${suffix}`);
-      if (!currentUser) {
-        localStorage.removeItem(`gley-finance-${suffix}`);
-        localStorage.removeItem(`finance-manager-${suffix}`);
-      }
+      localStorage.removeItem(`gley-finance-${suffix}`);
+      localStorage.removeItem(`finance-manager-${suffix}`);
     });
   }
 
@@ -283,25 +273,25 @@ document.addEventListener("DOMContentLoaded", () => {
         const doc = await docRef.get();
 
         if (doc.exists) {
-          const docData = doc.data();
-          const cloudState = docData.state || {};
+          const docData = doc.data() || {};
+          const cloudState = docData.state || docData;
           
-          state.cards = cloudState.cards || [];
-          state.expenses = cloudState.expenses || [];
-          state.revenues = cloudState.revenues || [];
-          state.orders = cloudState.orders || [];
-          state.accounts = cloudState.accounts || [];
-          state.recurring = cloudState.recurring || [];
-          state.goals = cloudState.goals || [];
-          state.projects = cloudState.projects || [];
-          state.userName = cloudState.userName || currentUser.displayName || "Usuário";
-          state.tagline = cloudState.tagline || "";
-          state.profilePhoto = cloudState.profilePhoto || "";
-          state.tier = docData.tier || cloudState.tier || "free";
+          state.cards = cloudState.cards || docData.cards || state.cards || [];
+          state.expenses = cloudState.expenses || docData.expenses || state.expenses || [];
+          state.revenues = cloudState.revenues || docData.revenues || state.revenues || [];
+          state.orders = cloudState.orders || docData.orders || state.orders || [];
+          state.accounts = cloudState.accounts || docData.accounts || state.accounts || [];
+          state.recurring = cloudState.recurring || docData.recurring || state.recurring || [];
+          state.goals = cloudState.goals || docData.goals || state.goals || [];
+          state.projects = cloudState.projects || docData.projects || state.projects || [];
+          state.userName = cloudState.userName || docData.userName || currentUser.displayName || state.userName || "Usuário";
+          state.tagline = cloudState.tagline || docData.tagline || state.tagline || DEFAULT_TAGLINE;
+          state.profilePhoto = cloudState.profilePhoto || docData.profilePhoto || state.profilePhoto || "";
+          state.tier = docData.tier || cloudState.tier || state.tier || "free";
           localStorage.setItem(getLocalStorageKey("tier"), state.tier);
           
-          if (cloudState.theme) {
-            state.theme = cloudState.theme;
+          if (cloudState.theme || docData.theme) {
+            state.theme = cloudState.theme || docData.theme;
             document.body.className = `theme-${state.theme}`;
             updateThemeIcon();
           }
@@ -310,21 +300,8 @@ document.addEventListener("DOMContentLoaded", () => {
           updateProfilePhotoUI();
           updateSyncIndicator("online");
         } else {
-          const hasLocalData = [
-            state.cards,
-            state.expenses,
-            state.revenues,
-            state.orders,
-            state.accounts,
-            state.recurring,
-            state.goals
-          ].some((items) => items.length > 0);
-          if (hasLocalData && await window.customConfirm("Deseja enviar os dados deste dispositivo para esta conta?")) {
-            await saveState();
-          } else {
-            resetStateForNewUser(currentUser.displayName || "Usuário");
-            await saveState();
-          }
+          await saveState();
+          updateSyncIndicator("online");
         }
       } catch (err) {
         console.error("Erro ao carregar dados do Firebase Firestore:", err);
