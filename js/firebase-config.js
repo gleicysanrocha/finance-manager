@@ -39,6 +39,16 @@ async function getCloudConfig() {
     return window.FIREBASE_CONFIG;
   }
   
+  const storedConfig = localStorage.getItem("finance_manager_firebase_config");
+  if (storedConfig) {
+    try {
+      const parsed = JSON.parse(storedConfig);
+      if (parsed && parsed.apiKey) {
+        return parsed;
+      }
+    } catch (e) {}
+  }
+  
   try {
     const configScript = await new Promise((resolve) => {
       const script = document.createElement("script");
