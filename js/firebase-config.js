@@ -116,11 +116,29 @@ async function initFirebase() {
           hideAuthOverlay();
         }
       } else {
+        const storedUserStr = localStorage.getItem("finance_manager_active_user");
+        if (storedUserStr) {
+          try {
+            const parsedUser = JSON.parse(storedUserStr);
+            if (parsedUser && parsedUser.email) {
+              currentUser = parsedUser;
+              updateSyncIndicator("online");
+              updateCloudUI(true, currentUser.email);
+              if (dropdownLogoutBtn) {
+                dropdownLogoutBtn.innerHTML = `<span>🚪</span> Sair da Conta`;
+              }
+              if (window.loadState) await loadState();
+              if (window.updateAdminUI) window.updateAdminUI();
+              return;
+            }
+          } catch (e) {}
+        }
+        
         currentUser = null;
         updateSyncIndicator("offline");
         updateCloudUI(false, "");
         if (dropdownLogoutBtn) {
-          dropdownLogoutBtn.innerHTML = `<span>🔑</span> Entrar / Conectar`;
+          dropdownLogoutBtn.innerHTML = `<span>🔑</span> Entrar / Conectar Conta`;
         }
         await loadState();
       }
