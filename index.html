@@ -1567,7 +1567,8 @@
 
   <!-- TELA DE LOGIN / AUTENTICAÇÃO (FIREBASE) -->
   <div id="auth-overlay" class="auth-overlay" style="display: none;">
-    <div class="auth-card">
+    <div class="auth-card" style="position: relative;">
+      <button type="button" id="btn-close-auth-modal" style="position: absolute; top: 1rem; right: 1rem; background: rgba(148, 163, 184, 0.15); border: none; font-size: 1.25rem; font-weight: bold; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; color: var(--text-main); display: flex; align-items: center; justify-content: center; z-index: 10000;" title="Fechar">&times;</button>
       <div class="auth-header">
         <div class="auth-logo-icon" id="auth-logo-svg"></div>
         <h2 id="auth-title">Acesse sua conta</h2>
