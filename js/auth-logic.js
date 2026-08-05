@@ -25,12 +25,25 @@ document.addEventListener("DOMContentLoaded", () => {
   const btnAdminDisconnect = document.getElementById("btn-admin-disconnect");
 
   function showAuthOverlay() {
-    if (authOverlay) authOverlay.style.display = "flex";
+    const el = document.getElementById("auth-overlay");
+    if (el) {
+      if (typeof setAuthMode === "function") {
+        setAuthMode("signin");
+      }
+      el.style.setProperty("display", "flex", "important");
+      el.style.visibility = "visible";
+      el.style.opacity = "1";
+    } else {
+      console.warn("Elemento #auth-overlay não encontrado no DOM");
+    }
   }
   window.showAuthOverlay = showAuthOverlay;
 
   function hideAuthOverlay() {
-    if (authOverlay) authOverlay.style.display = "none";
+    const el = document.getElementById("auth-overlay");
+    if (el) {
+      el.style.setProperty("display", "none", "important");
+    }
   }
   window.hideAuthOverlay = hideAuthOverlay;
 
@@ -85,6 +98,22 @@ document.addEventListener("DOMContentLoaded", () => {
       hideAuthOverlay();
       updateSyncIndicator("offline");
       updateCloudUI(false, "");
+    });
+  }
+
+  const btnCloseAuthModal = document.getElementById("btn-close-auth-modal");
+  if (btnCloseAuthModal) {
+    btnCloseAuthModal.addEventListener("click", () => {
+      hideAuthOverlay();
+    });
+  }
+
+  const syncStatusBtn = document.getElementById("sync-status-btn");
+  if (syncStatusBtn) {
+    syncStatusBtn.addEventListener("click", () => {
+      if (!currentUser) {
+        showAuthOverlay();
+      }
     });
   }
 
