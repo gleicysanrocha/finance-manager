@@ -21,6 +21,9 @@ try {
 var currentUser = _storedActiveUser || null;
 var isCloudEnabled = !!_storedActiveUser;
 
+window.currentUser = currentUser;
+window.isCloudEnabled = isCloudEnabled;
+
 const CLOUD_ICONS = {
   offline: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 20px; height: 20px;"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15a4.5 4.5 0 0 0 4.5 4.5H18a3.75 3.75 0 0 0 1.333-7.258 3.749 3.749 0 0 0-.258-2.628A5.25 5.25 0 0 0 8.877 6.512a5.25 5.25 0 0 0-3.32 4.1A4.5 4.5 0 0 0 2.25 15Z" /></svg>`,
   syncing: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 20px; height: 20px;" class="syncing"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>`,
@@ -227,6 +230,8 @@ async function initFirebase() {
         }
         if (window.hideAuthOverlay) window.hideAuthOverlay();
         if (window.updateAdminUI) window.updateAdminUI();
+        window.currentUser = currentUser;
+        window.isCloudEnabled = true;
         await loadState();
       } else {
         // onAuthStateChanged retornou null — manter usuário do localStorage se existir
@@ -235,6 +240,8 @@ async function initFirebase() {
           return;
         }
         currentUser = null;
+        window.currentUser = null;
+        window.isCloudEnabled = false;
         updateSyncIndicator("offline");
         if (window.updateCloudUI) window.updateCloudUI(false, "");
         if (dropdownLogoutBtn) {
