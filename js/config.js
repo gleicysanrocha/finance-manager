@@ -1,4 +1,4 @@
-// Configuração do Firebase para a aplicação Finance Manager
+﻿// Configuração do Firebase para a aplicação Finance Manager
 window.FIREBASE_CONFIG = {
   apiKey: "AIzaSyDDwdVRHEDw7QO3dZZt3iW37eCZFYwy_6A",
   authDomain: "financas-gley.firebaseapp.com",
