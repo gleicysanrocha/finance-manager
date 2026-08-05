@@ -398,6 +398,11 @@ function updateCloudUI(authorized, email) {
     }
   }
 
+  const profileDirectLoginBox = document.getElementById("profile-direct-login-box");
+  if (profileDirectLoginBox) {
+    profileDirectLoginBox.style.display = authorized ? "none" : "flex";
+  }
+
   if (profileEmail) {
     profileEmail.textContent = authorized ? email : "Modo Local (Offline)";
   }
@@ -413,6 +418,79 @@ function updateCloudUI(authorized, email) {
   }
 }
 window.updateCloudUI = updateCloudUI;
+
+window.executeDirectProfileLogin = async function() {
+  const emailInput = document.getElementById("profile-login-email");
+  const passInput = document.getElementById("profile-login-password");
+  const feedback = document.getElementById("profile-direct-login-feedback");
+  const btn = document.getElementById("btn-profile-direct-login");
+  
+  const email = emailInput ? emailInput.value.trim() : "";
+  const password = passInput ? passInput.value : "";
+  
+  if (!email || !password) {
+    if (feedback) {
+      feedback.textContent = "Preencha o e-mail e a senha.";
+      feedback.style.display = "block";
+    } else {
+      alert("Preencha o e-mail e a senha.");
+    }
+    return;
+  }
+  
+  if (!window.auth) {
+    if (feedback) {
+      feedback.textContent = "Aguarde... Conectando ao Firebase.";
+      feedback.style.display = "block";
+    }
+    const ok = await window.initFirebase();
+    if (!ok || !window.auth) {
+      if (feedback) {
+        feedback.textContent = "Erro ao conectar com Firebase. Verifique a internet.";
+        feedback.style.display = "block";
+      }
+      return;
+    }
+  }
+  
+  try {
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = "Entrando e carregando dados...";
+    }
+    if (feedback) feedback.style.display = "none";
+    
+    const userCredential = await window.auth.signInWithEmailAndPassword(email, password);
+    window.currentUser = userCredential.user;
+    
+    if (window.updateCloudUI) window.updateCloudUI(true, window.currentUser.email);
+    if (window.updateSyncIndicator) window.updateSyncIndicator("online");
+    
+    if (window.loadState) {
+      await window.loadState();
+    }
+    
+    await window.customAlert("🎉 Login realizado com sucesso! Seus dados foram sincronizados da nuvem.");
+    location.reload();
+  } catch (err) {
+    console.error("Erro no login direto:", err);
+    let msg = "Não foi possível entrar. Verifique o e-mail e a senha.";
+    if (err && (err.code === "auth/invalid-credential" || err.code === "auth/user-not-found" || err.code === "auth/wrong-password")) {
+      msg = "E-mail ou senha incorretos.";
+    }
+    if (feedback) {
+      feedback.textContent = msg;
+      feedback.style.display = "block";
+    } else {
+      alert(msg);
+    }
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = "🔓 Entrar e Carregar Meus Dados";
+    }
+  }
+};
 
 // LÓGICA DE CONTROLE DE ACESSO DO ADMINISTRADOR
 const ADMIN_EMAILS = ["gleicysanrocha@gmail.com"];
