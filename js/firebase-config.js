@@ -196,7 +196,7 @@ async function initFirebase() {
     // Se já temos currentUser do localStorage, carregar dados diretamente
     if (currentUser && currentUser.uid) {
       updateSyncIndicator("online");
-      updateCloudUI(true, currentUser.email);
+      if (window.updateCloudUI) window.updateCloudUI(true, currentUser.email);
       const dropdownLogoutBtn = document.getElementById("dropdown-logout-btn");
       if (dropdownLogoutBtn) {
         dropdownLogoutBtn.innerHTML = `<span>🚪</span> Sair da Conta`;
@@ -221,7 +221,7 @@ async function initFirebase() {
         };
         localStorage.setItem("finance_manager_active_user", JSON.stringify(currentUser));
         updateSyncIndicator("online");
-        updateCloudUI(true, currentUser.email);
+        if (window.updateCloudUI) window.updateCloudUI(true, currentUser.email);
         if (dropdownLogoutBtn) {
           dropdownLogoutBtn.innerHTML = `<span>🚪</span> Sair da Conta`;
         }
@@ -236,7 +236,7 @@ async function initFirebase() {
         }
         currentUser = null;
         updateSyncIndicator("offline");
-        updateCloudUI(false, "");
+        if (window.updateCloudUI) window.updateCloudUI(false, "");
         if (dropdownLogoutBtn) {
           dropdownLogoutBtn.innerHTML = `<span>🔑</span> Entrar / Conectar Conta`;
         }
