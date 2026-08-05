@@ -92,6 +92,9 @@ async function initFirebase() {
   try {
     firebase.initializeApp(config);
     auth = firebase.auth();
+    try {
+      auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+    } catch (e) {}
     db = firebase.firestore();
     isCloudEnabled = true;
     console.log("Firebase inicializado com sucesso!");
