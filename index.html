@@ -1687,116 +1687,148 @@
   <script src="js/auth-logic.js"></script>
   <script src="js/app.js"></script>
   <script>
+    var _FB_API_KEY = "AIzaSyDDwdVRHEDw7QO3dZZt3iW37eCZFYwy_6A";
+    var _FB_PROJECT_ID = "financas-gley";
+
     window.FIREBASE_CONFIG = {
-      apiKey: "AIzaSyDDwdVRHEDw7QO3dZZt3iW37eCZFYwy_6A",
+      apiKey: _FB_API_KEY,
       authDomain: "financas-gley.firebaseapp.com",
-      projectId: "financas-gley",
+      projectId: _FB_PROJECT_ID,
       storageBucket: "financas-gley.firebasestorage.app",
       messagingSenderId: "353480417657",
       appId: "1:353480417657:web:0c98d7378745f18df9cfa8"
     };
 
-    window.executeDirectProfileLogin = async function() {
-      const emailInput = document.getElementById("profile-login-email");
-      const passInput = document.getElementById("profile-login-password");
-      const btn = document.getElementById("btn-profile-direct-login");
-      const feedback = document.getElementById("profile-direct-login-feedback");
-
-      const email = emailInput ? emailInput.value.trim() : "";
-      const password = passInput ? passInput.value : "";
-
-      if (!email || !password) {
-        alert("Por favor, preencha o seu e-mail e a sua senha.");
-        return;
-      }
-
-      if (btn) {
-        btn.disabled = true;
-        btn.textContent = "Entrando e carregando dados...";
-      }
-
-      try {
-        let loggedUser = null;
-
-        // Usar Firebase Auth REST API — funciona em qualquer domínio, sem restrições
-        if (window.firebaseSignIn) {
-          try {
-            const res = await window.firebaseSignIn(email, password);
-            loggedUser = res.user;
-          } catch (e) {
-            console.warn("SignIn REST error:", e.code || e.message);
-            // EMAIL_NOT_FOUND = usuário não existe ainda, tentar criar
-            if (e.code === "EMAIL_NOT_FOUND" || e.code === "auth/user-not-found") {
-              try {
-                const res2 = await window.firebaseSignUp(email, password);
-                loggedUser = res2.user;
-              } catch (e2) {
-                throw e; // Re-lançar o erro original de login
-              }
-            } else {
-              throw e;
-            }
-          }
-        }
-
-        if (!loggedUser) {
-          throw new Error("Não foi possível conectar ao Firebase. Verifique sua conexão.");
-        }
-
-        window.currentUser = loggedUser;
-        window.isCloudEnabled = true;
-        localStorage.setItem("finance_manager_active_user", JSON.stringify({
-          uid: loggedUser.uid,
-          email: loggedUser.email,
-          displayName: loggedUser.displayName || loggedUser.email.split("@")[0],
-          idToken: loggedUser.idToken,
-          refreshToken: loggedUser.refreshToken
-        }));
-
-        const directBox = document.getElementById("profile-direct-login-box");
-        if (directBox) directBox.style.display = "none";
-
-        if (window.updateCloudUI) window.updateCloudUI(true, email);
-        if (window.updateSyncIndicator) window.updateSyncIndicator("online");
-        if (window.updateAdminUI) window.updateAdminUI();
-
-        if (window.loadState) {
-          await window.loadState();
-        }
-
-        alert("🎉 Conectado com sucesso como " + email + "! Seus dados foram carregados da nuvem.");
-        location.reload();
-      } catch (err) {
-        console.error("Direct login error:", err);
-        let msg = err.message || String(err);
-        if (msg.includes("INVALID_PASSWORD") || msg.includes("INVALID_LOGIN_CREDENTIALS")) {
-          msg = "Senha incorreta. Verifique e tente novamente.";
-        } else if (msg.includes("TOO_MANY_ATTEMPTS") || msg.includes("QUOTA")) {
-          msg = "Muitas tentativas. Aguarde alguns minutos e tente novamente.";
-        }
-        if (feedback) { feedback.textContent = msg; feedback.style.display = "block"; }
-        alert("Erro no login: " + msg);
-      } finally {
-        if (btn) {
-          btn.disabled = false;
-          btn.textContent = "🔓 Entrar e Carregar Meus Dados";
-        }
-      }
-    };
-
-    // Desregistrar qualquer Service Worker antigo
+    // Desregistrar Service Workers antigos para forçar versão nova
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then((registrations) => {
-        for (let registration of registrations) {
-          registration.unregister();
-        }
+      navigator.serviceWorker.getRegistrations().then(function(regs) {
+        regs.forEach(function(r) { r.unregister(); });
       });
     }
     if (window.caches) {
-      caches.keys().then((names) => {
-        for (let name of names) caches.delete(name);
+      caches.keys().then(function(names) {
+        names.forEach(function(n) { caches.delete(n); });
       });
     }
+
+    window.executeDirectProfileLogin = async function() {
+      var emailInput = document.getElementById("profile-login-email");
+      var passInput  = document.getElementById("profile-login-password");
+      var btn        = document.getElementById("btn-profile-direct-login");
+      var feedback   = document.getElementById("profile-direct-login-feedback");
+
+      var email    = emailInput ? emailInput.value.trim() : "";
+      var password = passInput  ? passInput.value         : "";
+
+      if (!email || !password) {
+        alert("Preencha o e-mail e a senha antes de continuar.");
+        return;
+      }
+
+      if (btn) { btn.disabled = true; btn.textContent = "Aguarde..."; }
+      if (feedback) feedback.style.display = "none";
+
+      try {
+        // ── 1. LOGIN via Firebase Auth REST API (funciona em QUALQUER domínio) ──
+        var authUrl = "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=" + _FB_API_KEY;
+        var authRes = await fetch(authUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: email, password: password, returnSecureToken: true })
+        });
+        var authData = await authRes.json();
+
+        if (!authRes.ok || !authData.idToken) {
+          var errCode = (authData.error && authData.error.message) || "ERRO_DESCONHECIDO";
+          var errMsg  = errCode;
+          if (errCode.includes("INVALID_PASSWORD") || errCode.includes("INVALID_LOGIN_CREDENTIALS")) {
+            errMsg = "E-mail ou senha incorretos.";
+          } else if (errCode.includes("EMAIL_NOT_FOUND") || errCode.includes("USER_NOT_FOUND")) {
+            errMsg = "E-mail nao cadastrado no Firebase.";
+          } else if (errCode.includes("TOO_MANY_ATTEMPTS")) {
+            errMsg = "Conta bloqueada por muitas tentativas. Aguarde e tente novamente.";
+          }
+          if (feedback) { feedback.textContent = errMsg; feedback.style.display = "block"; }
+          alert("Erro no login: " + errMsg);
+          return;
+        }
+
+        var loggedUser = {
+          uid:          authData.localId,
+          email:        authData.email,
+          displayName:  authData.displayName || authData.email.split("@")[0],
+          idToken:      authData.idToken,
+          refreshToken: authData.refreshToken
+        };
+
+        // ── 2. Salvar sessao no localStorage ──
+        localStorage.setItem("finance_manager_active_user", JSON.stringify(loggedUser));
+        window.currentUser    = loggedUser;
+        window.isCloudEnabled = true;
+
+        // ── 3. Buscar dados do Firestore via REST API ──
+        var fsUrl = "https://firestore.googleapis.com/v1/projects/" + _FB_PROJECT_ID
+                  + "/databases/(default)/documents/financial_data/" + loggedUser.uid;
+        try {
+          var fsRes = await fetch(fsUrl, {
+            headers: { "Authorization": "Bearer " + loggedUser.idToken }
+          });
+          if (fsRes.ok) {
+            var fsDoc = await fsRes.json();
+            function fromFsVal(v) {
+              if (!v) return null;
+              if (v.stringValue  !== undefined) return v.stringValue;
+              if (v.integerValue !== undefined) return Number(v.integerValue);
+              if (v.doubleValue  !== undefined) return Number(v.doubleValue);
+              if (v.booleanValue !== undefined) return v.booleanValue;
+              if (v.nullValue    !== undefined) return null;
+              if (v.arrayValue)  return (v.arrayValue.values || []).map(fromFsVal);
+              if (v.mapValue) {
+                var o = {};
+                Object.keys(v.mapValue.fields || {}).forEach(function(k) { o[k] = fromFsVal(v.mapValue.fields[k]); });
+                return o;
+              }
+              return null;
+            }
+            if (fsDoc.fields) {
+              var raw = {};
+              Object.keys(fsDoc.fields).forEach(function(k) { raw[k] = fromFsVal(fsDoc.fields[k]); });
+              var cs = raw.state || raw;
+              function lsKey(s) { return "finance-manager-" + loggedUser.uid + "-" + s; }
+              if (cs.expenses)  localStorage.setItem(lsKey("expenses"),  JSON.stringify(cs.expenses));
+              if (cs.revenues)  localStorage.setItem(lsKey("revenues"),  JSON.stringify(cs.revenues));
+              if (cs.cards)     localStorage.setItem(lsKey("cards"),     JSON.stringify(cs.cards));
+              if (cs.accounts)  localStorage.setItem(lsKey("accounts"),  JSON.stringify(cs.accounts));
+              if (cs.recurring) localStorage.setItem(lsKey("recurring"), JSON.stringify(cs.recurring));
+              if (cs.goals)     localStorage.setItem(lsKey("goals"),     JSON.stringify(cs.goals));
+              if (cs.projects)  localStorage.setItem(lsKey("projects"),  JSON.stringify(cs.projects));
+              if (cs.userName)  localStorage.setItem(lsKey("username"),  cs.userName);
+              var tier = raw.tier || cs.tier;
+              if (tier) localStorage.setItem(lsKey("tier"), tier);
+            }
+          }
+        } catch (fsErr) {
+          console.warn("Firestore REST:", fsErr);
+        }
+
+        // ── 4. Atualizar interface e recarregar ──
+        if (window.updateCloudUI)       window.updateCloudUI(true, email);
+        if (window.updateSyncIndicator) window.updateSyncIndicator("online");
+        if (window.updateAdminUI)       window.updateAdminUI();
+        if (window.loadState)           await window.loadState();
+
+        alert("Conectado como " + email + "! Seus dados foram carregados com sucesso.");
+        location.reload();
+
+      } catch (err) {
+        console.error("Login error:", err);
+        var m = (err && err.message) ? err.message : String(err);
+        if (feedback) { feedback.textContent = m; feedback.style.display = "block"; }
+        alert("Erro inesperado: " + m);
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = "🔓 Entrar e Carregar Meus Dados"; }
+      }
+    };
   </script>
 </body>
 </html>
