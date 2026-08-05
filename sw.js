@@ -1,4 +1,4 @@
-// Service Worker desativado para permitir carregamento direto e atualização em tempo real
+﻿// Service Worker desativado para permitir carregamento direto e atualização em tempo real
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (event) => {
   event.waitUntil(
