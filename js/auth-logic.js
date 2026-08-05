@@ -429,26 +429,28 @@ window.executeDirectProfileLogin = async function() {
   const password = passInput ? passInput.value : "";
   
   if (!email || !password) {
+    const msg = "Preencha o e-mail e a senha.";
     if (feedback) {
-      feedback.textContent = "Preencha o e-mail e a senha.";
+      feedback.textContent = msg;
       feedback.style.display = "block";
-    } else {
-      alert("Preencha o e-mail e a senha.");
     }
+    alert(msg);
     return;
   }
   
   if (!window.auth) {
     if (feedback) {
-      feedback.textContent = "Aguarde... Conectando ao Firebase.";
+      feedback.textContent = "Aguarde... Inicializando conexão com Firebase.";
       feedback.style.display = "block";
     }
     const ok = await window.initFirebase();
     if (!ok || !window.auth) {
+      const msg = "Erro ao inicializar Firebase. Verifique se a conexão está ativa.";
       if (feedback) {
-        feedback.textContent = "Erro ao conectar com Firebase. Verifique a internet.";
+        feedback.textContent = msg;
         feedback.style.display = "block";
       }
+      alert(msg);
       return;
     }
   }
@@ -456,34 +458,53 @@ window.executeDirectProfileLogin = async function() {
   try {
     if (btn) {
       btn.disabled = true;
-      btn.textContent = "Entrando e carregando dados...";
+      btn.textContent = "Entrando e buscando dados...";
     }
     if (feedback) feedback.style.display = "none";
     
-    const userCredential = await window.auth.signInWithEmailAndPassword(email, password);
-    window.currentUser = userCredential.user;
-    
-    if (window.updateCloudUI) window.updateCloudUI(true, window.currentUser.email);
-    if (window.updateSyncIndicator) window.updateSyncIndicator("online");
-    
-    if (window.loadState) {
-      await window.loadState();
+    let userCredential = null;
+    try {
+      userCredential = await window.auth.signInWithEmailAndPassword(email, password);
+    } catch (loginErr) {
+      console.warn("Tentativa de login direto:", loginErr);
+      if (loginErr.code === "auth/user-not-found" || loginErr.code === "auth/invalid-credential") {
+        try {
+          userCredential = await window.auth.createUserWithEmailAndPassword(email, password);
+        } catch (signupErr) {
+          throw loginErr;
+        }
+      } else {
+        throw loginErr;
+      }
     }
     
-    await window.customAlert("🎉 Login realizado com sucesso! Seus dados foram sincronizados da nuvem.");
-    location.reload();
+    if (userCredential && userCredential.user) {
+      window.currentUser = userCredential.user;
+      if (window.updateCloudUI) window.updateCloudUI(true, window.currentUser.email);
+      if (window.updateSyncIndicator) window.updateSyncIndicator("online");
+      
+      if (window.loadState) {
+        await window.loadState();
+      }
+      
+      await window.customAlert("🎉 Conectado com sucesso como " + window.currentUser.email + "! Dados sincronizados.");
+      location.reload();
+    }
   } catch (err) {
     console.error("Erro no login direto:", err);
-    let msg = "Não foi possível entrar. Verifique o e-mail e a senha.";
-    if (err && (err.code === "auth/invalid-credential" || err.code === "auth/user-not-found" || err.code === "auth/wrong-password")) {
-      msg = "E-mail ou senha incorretos.";
+    let msg = err.message || "Erro desconhecido ao entrar.";
+    if (err.code === "auth/invalid-credential" || err.code === "auth/wrong-password") {
+      msg = "Senha incorreta para o e-mail digitado. Verifique sua senha.";
+    } else if (err.code === "auth/unauthorized-domain") {
+      msg = "Domínio não autorizado no Firebase. Adicione o domínio nas configurações do Firebase Console.";
+    } else if (err.code === "auth/invalid-email") {
+      msg = "Digite um e-mail em formato válido.";
     }
     if (feedback) {
       feedback.textContent = msg;
       feedback.style.display = "block";
-    } else {
-      alert(msg);
     }
+    alert("Atenção no Login: " + msg);
   } finally {
     if (btn) {
       btn.disabled = false;
