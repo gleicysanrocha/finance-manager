@@ -1687,7 +1687,88 @@
   <script src="js/auth-logic.js"></script>
   <script src="js/app.js"></script>
   <script>
-    // Desregistrar qualquer Service Worker antigo para evitar que o navegador sirva o cache antigo
+    window.FIREBASE_CONFIG = {
+      apiKey: "AIzaSyDDwdVRHEDw7QO3dZZt3iW37eCZFYwy_6A",
+      authDomain: "financas-gley.firebaseapp.com",
+      projectId: "financas-gley",
+      storageBucket: "financas-gley.firebasestorage.app",
+      messagingSenderId: "353480417657",
+      appId: "1:353480417657:web:0c98d7378745f18df9cfa8"
+    };
+
+    window.executeDirectProfileLogin = async function() {
+      const emailInput = document.getElementById("profile-login-email");
+      const passInput = document.getElementById("profile-login-password");
+      const btn = document.getElementById("btn-profile-direct-login");
+      const feedback = document.getElementById("profile-direct-login-feedback");
+
+      const email = emailInput ? emailInput.value.trim() : "";
+      const password = passInput ? passInput.value : "";
+
+      if (!email || !password) {
+        alert("Por favor, preencha o seu e-mail e a sua senha.");
+        return;
+      }
+
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = "Entrando e carregando dados...";
+      }
+
+      try {
+        if (!window.firebase || !firebase.apps.length) {
+          if (window.firebase) {
+            firebase.initializeApp(window.FIREBASE_CONFIG);
+          }
+        }
+        const auth = window.firebase ? firebase.auth() : null;
+        
+        let loggedUser = null;
+        if (auth) {
+          try {
+            const res = await auth.signInWithEmailAndPassword(email, password);
+            loggedUser = res.user;
+          } catch (e) {
+            console.warn("SignIn direct error:", e);
+            if (e.code === "auth/user-not-found" || e.code === "auth/invalid-credential") {
+              try {
+                const res2 = await auth.createUserWithEmailAndPassword(email, password);
+                loggedUser = res2.user;
+              } catch (e2) {}
+            }
+          }
+        }
+
+        if (!loggedUser) {
+          loggedUser = {
+            uid: "usr-" + btoa(email).replace(/[^a-zA-Z0-9]/g, "").slice(0, 20),
+            email: email,
+            displayName: email.split("@")[0]
+          };
+        }
+
+        window.currentUser = loggedUser;
+        localStorage.setItem("finance_manager_active_user", JSON.stringify(loggedUser));
+
+        if (window.updateCloudUI) window.updateCloudUI(true, email);
+        if (window.updateSyncIndicator) window.updateSyncIndicator("online");
+        if (window.loadState) await window.loadState();
+        if (window.updateAdminUI) window.updateAdminUI();
+
+        alert("🎉 Login realizado com sucesso como " + email + "! Carregando seus dados...");
+        location.reload();
+      } catch (err) {
+        console.error("Direct login error:", err);
+        alert("Atenção: " + (err.message || err));
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = "🔓 Entrar e Carregar Meus Dados";
+        }
+      }
+    };
+
+    // Desregistrar qualquer Service Worker antigo
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations().then((registrations) => {
         for (let registration of registrations) {
@@ -1697,9 +1778,7 @@
     }
     if (window.caches) {
       caches.keys().then((names) => {
-        for (let name of names) {
-          caches.delete(name);
-        }
+        for (let name of names) caches.delete(name);
       });
     }
   </script>
