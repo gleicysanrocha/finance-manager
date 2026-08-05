@@ -5,9 +5,16 @@
 // Variáveis Globais de Nuvem e Autenticação
 var auth = null;
 var db = null;
-var isCloudEnabled = false;
-var currentUser = null;
 var isCompletingSignup = false;
+
+var _storedActiveUser = null;
+try {
+  const _rawUser = localStorage.getItem("finance_manager_active_user");
+  if (_rawUser) _storedActiveUser = JSON.parse(_rawUser);
+} catch(e) {}
+
+var currentUser = _storedActiveUser || null;
+var isCloudEnabled = !!_storedActiveUser;
 
 const CLOUD_ICONS = {
   offline: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 20px; height: 20px;"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15a4.5 4.5 0 0 0 4.5 4.5H18a3.75 3.75 0 0 0 1.333-7.258 3.749 3.749 0 0 0-.258-2.628A5.25 5.25 0 0 0 8.877 6.512a5.25 5.25 0 0 0-3.32 4.1A4.5 4.5 0 0 0 2.25 15Z" /></svg>`,
