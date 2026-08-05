@@ -1,4 +1,4 @@
-// Biblioteca de Ícones SVG Premium em formato String
+﻿// Biblioteca de Ícones SVG Premium em formato String
 // Mantém o HTML limpo e permite o uso dinâmico em todo o sistema
 
 const ICONS = {
