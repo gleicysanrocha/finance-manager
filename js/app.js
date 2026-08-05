@@ -1,4 +1,4 @@
-﻿// ===========================================================================
+// ===========================================================================
 // LÓGICA CENTRAL - GERENCIADOR FINANCEIRO PREMIUM
 // ===========================================================================
 
@@ -267,13 +267,32 @@ document.addEventListener("DOMContentLoaded", () => {
     if (isCloudEnabled && currentUser) {
       updateSyncIndicator("syncing");
       try {
-        const docRef = db.collection("financial_data").doc(currentUser.uid);
-        const doc = await docRef.get();
+        let docData = null;
 
-        if (doc.exists) {
-          const docData = doc.data() || {};
+        // Tentar via Firestore REST API primeiro (funciona independente de domínio autorizado)
+        if (currentUser.idToken && window.firestoreGet) {
+          try {
+            const restDoc = await window.firestoreGet("financial_data/" + currentUser.uid);
+            if (restDoc && restDoc.fields) {
+              docData = window.fromFirestoreDoc(restDoc);
+            }
+          } catch (restErr) {
+            console.warn("Firestore REST falhou, tentando SDK:", restErr);
+          }
+        }
+
+        // Fallback para o SDK do Firestore se REST não funcionou e db está disponível
+        if (!docData && db) {
+          const docRef = db.collection("financial_data").doc(currentUser.uid);
+          const doc = await docRef.get();
+          if (doc.exists) {
+            docData = doc.data() || {};
+          }
+        }
+
+        if (docData) {
           const cloudState = docData.state || docData;
-          
+
           state.cards = cloudState.cards || docData.cards || state.cards || [];
           state.expenses = cloudState.expenses || docData.expenses || state.expenses || [];
           state.revenues = cloudState.revenues || docData.revenues || state.revenues || [];
@@ -287,7 +306,7 @@ document.addEventListener("DOMContentLoaded", () => {
           state.profilePhoto = cloudState.profilePhoto || docData.profilePhoto || state.profilePhoto || "";
           state.tier = docData.tier || cloudState.tier || state.tier || "free";
           localStorage.setItem(getLocalStorageKey("tier"), state.tier);
-          
+
           if (cloudState.theme || docData.theme) {
             state.theme = cloudState.theme || docData.theme;
             document.body.className = `theme-${state.theme}`;
@@ -386,12 +405,26 @@ document.addEventListener("DOMContentLoaded", () => {
           profilePhoto: state.profilePhoto || ""
         };
 
-        const docRef = db.collection("financial_data").doc(currentUser.uid);
-        await docRef.set({
-          state: payload,
-          tier: state.tier,
-          updated_at: new Date().toISOString()
-        }, { merge: true });
+        let saved = false;
+        // Tentar via REST API primeiro (não requer domínio autorizado)
+        if (currentUser.idToken && window.firestoreSet) {
+          try {
+            await window.firestoreSet("financial_data/" + currentUser.uid, {
+              state: payload,
+              tier: state.tier,
+              updated_at: new Date().toISOString()
+            });
+            saved = true;
+          } catch (restErr) {
+            console.warn("Firestore REST save falhou, tentando SDK:", restErr);
+          }
+        }
+
+        // Fallback SDK
+        if (!saved && db) {
+          const docRef = db.collection("financial_data").doc(currentUser.uid);
+          await docRef.set({ state: payload, tier: state.tier, updated_at: new Date().toISOString() }, { merge: true });
+        }
 
         updateSyncIndicator("online");
       } catch (err) {
