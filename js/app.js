@@ -264,6 +264,12 @@ document.addEventListener("DOMContentLoaded", () => {
     updateTierUI();
     updateProfilePhotoUI();
 
+    // Sincronizar variáveis locais com o escopo global (definido no index.html/firebase-config)
+    if (window.currentUser) {
+      currentUser = window.currentUser;
+      isCloudEnabled = true;
+    }
+
     if (isCloudEnabled && currentUser) {
       updateSyncIndicator("syncing");
       try {
@@ -3836,9 +3842,12 @@ document.addEventListener("DOMContentLoaded", () => {
   updateProfilePhotoUI();
   setupProfilePhoto();
   initFirebase().then((cloudEnabled) => {
-    if (!cloudEnabled) {
-      loadState();
+    // Sincronizar variáveis locais do app.js com o escopo global após a inicialização do Firebase
+    if (window.currentUser) {
+      currentUser = window.currentUser;
+      isCloudEnabled = true;
     }
+    loadState();
   });
 
   // Configurar Filtros e Botões da Aba de Relatórios & BI
