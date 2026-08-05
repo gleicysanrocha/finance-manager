@@ -1,12 +1,17 @@
-﻿// ===========================================================================
+// ===========================================================================
 // CONFIGURAÇÃO DO FIREBASE E NUVEM
 // ===========================================================================
+
+// API Key do Firebase para chamadas REST diretas (independente de domínio autorizado)
+var FIREBASE_API_KEY = "AIzaSyDDwdVRHEDw7QO3dZZt3iW37eCZFYwy_6A";
+var FIREBASE_PROJECT_ID = "financas-gley";
 
 // Variáveis Globais de Nuvem e Autenticação
 var auth = null;
 var db = null;
 var isCompletingSignup = false;
 
+// Restaurar usuário ativo sincronicamente do localStorage
 var _storedActiveUser = null;
 try {
   const _rawUser = localStorage.getItem("finance_manager_active_user");
@@ -26,10 +31,8 @@ const CLOUD_ICONS = {
 function updateSyncIndicator(status) {
   const btn = document.getElementById("sync-status-btn");
   if (!btn) return;
-  
   btn.className = "control-btn sync-indicator " + status;
   btn.innerHTML = CLOUD_ICONS[status] || CLOUD_ICONS.offline;
-  
   if (status === "online") {
     btn.title = "Sincronizado na Nuvem (Clique para forçar sync)";
   } else if (status === "syncing") {
@@ -41,46 +44,133 @@ function updateSyncIndicator(status) {
   }
 }
 
-async function getCloudConfig() {
-  if (window.FIREBASE_CONFIG && window.FIREBASE_CONFIG.apiKey) {
-    return window.FIREBASE_CONFIG;
+// ============================================================================
+// FIREBASE AUTH via REST API — Não depende de domínio autorizado no Console
+// ============================================================================
+window.firebaseSignIn = async function(email, password) {
+  const url = "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=" + FIREBASE_API_KEY;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: email, password: password, returnSecureToken: true })
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw { code: data.error?.message || "auth/unknown", message: data.error?.message || "Erro de autenticação" };
   }
-  
+  return {
+    user: {
+      uid: data.localId,
+      email: data.email,
+      displayName: data.displayName || email.split("@")[0],
+      idToken: data.idToken,
+      refreshToken: data.refreshToken
+    }
+  };
+};
+
+window.firebaseSignUp = async function(email, password) {
+  const url = "https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=" + FIREBASE_API_KEY;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: email, password: password, returnSecureToken: true })
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw { code: data.error?.message || "auth/unknown", message: data.error?.message || "Erro ao criar conta" };
+  }
+  return {
+    user: {
+      uid: data.localId,
+      email: data.email,
+      displayName: email.split("@")[0],
+      idToken: data.idToken,
+      refreshToken: data.refreshToken
+    }
+  };
+};
+
+// ============================================================================
+// FIRESTORE via REST API — Não depende do Firebase SDK Auth
+// ============================================================================
+window.firestoreGet = async function(docPath) {
+  const token = currentUser && currentUser.idToken ? currentUser.idToken : null;
+  const url = "https://firestore.googleapis.com/v1/projects/" + FIREBASE_PROJECT_ID + "/databases/(default)/documents/" + docPath + (token ? "" : "?key=" + FIREBASE_API_KEY);
+  const headers = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = "Bearer " + token;
+  const res = await fetch(url, { headers });
+  if (!res.ok) {
+    if (res.status === 404) return null;
+    throw new Error("Firestore GET error " + res.status);
+  }
+  const json = await res.json();
+  return json;
+};
+
+window.firestoreSet = async function(docPath, data) {
+  const token = currentUser && currentUser.idToken ? currentUser.idToken : null;
+  if (!token) { console.warn("Sem token para escrever no Firestore"); return; }
+  const url = "https://firestore.googleapis.com/v1/projects/" + FIREBASE_PROJECT_ID + "/databases/(default)/documents/" + docPath;
+  const headers = { "Content-Type": "application/json", "Authorization": "Bearer " + token };
+  // Converter objeto JS para formato Firestore
+  function toFirestoreValue(val) {
+    if (val === null || val === undefined) return { nullValue: null };
+    if (typeof val === "boolean") return { booleanValue: val };
+    if (typeof val === "number") return { integerValue: String(Math.round(val)) };
+    if (typeof val === "string") return { stringValue: val };
+    if (Array.isArray(val)) return { arrayValue: { values: val.map(toFirestoreValue) } };
+    if (typeof val === "object") {
+      const fields = {};
+      for (const k of Object.keys(val)) fields[k] = toFirestoreValue(val[k]);
+      return { mapValue: { fields } };
+    }
+    return { stringValue: String(val) };
+  }
+  const fields = {};
+  for (const k of Object.keys(data)) fields[k] = toFirestoreValue(data[k]);
+  const res = await fetch(url + "?updateMask.fieldPaths=" + Object.keys(data).join("&updateMask.fieldPaths="), {
+    method: "PATCH",
+    headers,
+    body: JSON.stringify({ fields })
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error("Firestore SET error " + res.status + ": " + err);
+  }
+  return await res.json();
+};
+
+// Converter resposta Firestore para objeto JS simples
+window.fromFirestoreDoc = function(doc) {
+  if (!doc || !doc.fields) return null;
+  function fromVal(v) {
+    if (v.nullValue !== undefined) return null;
+    if (v.booleanValue !== undefined) return v.booleanValue;
+    if (v.integerValue !== undefined) return Number(v.integerValue);
+    if (v.doubleValue !== undefined) return Number(v.doubleValue);
+    if (v.stringValue !== undefined) return v.stringValue;
+    if (v.arrayValue) return (v.arrayValue.values || []).map(fromVal);
+    if (v.mapValue) {
+      const obj = {};
+      for (const k of Object.keys(v.mapValue.fields || {})) obj[k] = fromVal(v.mapValue.fields[k]);
+      return obj;
+    }
+    return null;
+  }
+  const obj = {};
+  for (const k of Object.keys(doc.fields)) obj[k] = fromVal(doc.fields[k]);
+  return obj;
+};
+
+async function getCloudConfig() {
+  if (window.FIREBASE_CONFIG && window.FIREBASE_CONFIG.apiKey) return window.FIREBASE_CONFIG;
   const storedConfig = localStorage.getItem("finance_manager_firebase_config");
   if (storedConfig) {
     try {
       const parsed = JSON.parse(storedConfig);
-      if (parsed && parsed.apiKey) {
-        return parsed;
-      }
+      if (parsed && parsed.apiKey) return parsed;
     } catch (e) {}
-  }
-  
-  try {
-    const configScript = await new Promise((resolve) => {
-      const script = document.createElement("script");
-      script.src = "js/config.js";
-      script.onload = () => resolve(window.FIREBASE_CONFIG || null);
-      script.onerror = () => resolve(null);
-      document.head.appendChild(script);
-    });
-    if (configScript && configScript.apiKey) {
-      return configScript;
-    }
-  } catch (e) {
-    console.log("Sem config.js local");
-  }
-
-  try {
-    const res = await fetch("/api/config");
-    if (res.ok) {
-      const data = await res.json();
-      if (data.apiKey) {
-        return data;
-      }
-    }
-  } catch (e) {
-    console.warn("API de configuração não disponível. Rodando no modo local.");
   }
   return null;
 }
@@ -88,59 +178,62 @@ async function getCloudConfig() {
 async function initFirebase() {
   const config = await getCloudConfig();
   if (!config) {
-    console.log("Firebase não configurado. Continuando no Modo Web (Standalone / Local).");
+    console.log("Firebase não configurado. Continuando no Modo Local.");
     updateSyncIndicator("offline");
-    if (window.loadState) {
-      await window.loadState();
-    }
+    if (window.loadState) await window.loadState();
     return false;
   }
-  
+
   try {
-    firebase.initializeApp(config);
-    auth = firebase.auth();
-    try {
-      auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
-    } catch (e) {}
+    if (!firebase.apps.length) {
+      firebase.initializeApp(config);
+    }
+    // Inicializar db para compatibilidade com código existente
     db = firebase.firestore();
     isCloudEnabled = true;
-    console.log("Firebase inicializado com sucesso!");
-    
+
+    // Usar REST API para auth — não depende de domínio autorizado
+    // Se já temos currentUser do localStorage, carregar dados diretamente
+    if (currentUser && currentUser.uid) {
+      updateSyncIndicator("online");
+      updateCloudUI(true, currentUser.email);
+      const dropdownLogoutBtn = document.getElementById("dropdown-logout-btn");
+      if (dropdownLogoutBtn) {
+        dropdownLogoutBtn.innerHTML = `<span>🚪</span> Sair da Conta`;
+      }
+      if (window.updateAdminUI) window.updateAdminUI();
+      await loadState();
+      return true;
+    }
+
+    // Se não temos usuário ainda, tentar auth listener do SDK (pode funcionar se domínio OK)
+    auth = firebase.auth();
+    try { auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL); } catch(e) {}
+
     auth.onAuthStateChanged(async (user) => {
       const dropdownLogoutBtn = document.getElementById("dropdown-logout-btn");
       if (user) {
-        const isNewUser = !currentUser || currentUser.uid !== user.uid;
-        currentUser = user;
+        currentUser = {
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName || user.email.split("@")[0],
+          idToken: await user.getIdToken()
+        };
+        localStorage.setItem("finance_manager_active_user", JSON.stringify(currentUser));
         updateSyncIndicator("online");
         updateCloudUI(true, currentUser.email);
         if (dropdownLogoutBtn) {
           dropdownLogoutBtn.innerHTML = `<span>🚪</span> Sair da Conta`;
         }
-        if (isNewUser && !isCompletingSignup) {
-          await loadState();
-        }
-        if (!isCompletingSignup) {
-          hideAuthOverlay();
-        }
+        if (window.hideAuthOverlay) window.hideAuthOverlay();
+        if (window.updateAdminUI) window.updateAdminUI();
+        await loadState();
       } else {
-        const storedUserStr = localStorage.getItem("finance_manager_active_user");
-        if (storedUserStr) {
-          try {
-            const parsedUser = JSON.parse(storedUserStr);
-            if (parsedUser && parsedUser.email) {
-              currentUser = parsedUser;
-              updateSyncIndicator("online");
-              updateCloudUI(true, currentUser.email);
-              if (dropdownLogoutBtn) {
-                dropdownLogoutBtn.innerHTML = `<span>🚪</span> Sair da Conta`;
-              }
-              if (window.loadState) await loadState();
-              if (window.updateAdminUI) window.updateAdminUI();
-              return;
-            }
-          } catch (e) {}
+        // onAuthStateChanged retornou null — manter usuário do localStorage se existir
+        if (currentUser && currentUser.uid) {
+          // Já temos usuário restaurado — não sobrescrever
+          return;
         }
-        
         currentUser = null;
         updateSyncIndicator("offline");
         updateCloudUI(false, "");
@@ -149,21 +242,14 @@ async function initFirebase() {
         }
         await loadState();
       }
-      
-      if (window.updateAdminUI) {
-        window.updateAdminUI();
-      }
     });
-    
+
     return true;
   } catch (err) {
     console.error("Erro ao inicializar Firebase:", err);
     updateSyncIndicator("error");
-    if (window.loadState) {
-      await window.loadState();
-    }
+    if (window.loadState) await window.loadState();
     return false;
   }
 }
 window.initFirebase = initFirebase;
-
