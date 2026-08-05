@@ -27,12 +27,13 @@ document.addEventListener("DOMContentLoaded", () => {
   function showAuthOverlay() {
     const el = document.getElementById("auth-overlay");
     if (el) {
-      if (typeof setAuthMode === "function") {
-        setAuthMode("signin");
+      if (typeof window.setAuthMode === "function") {
+        window.setAuthMode("signin");
       }
       el.style.setProperty("display", "flex", "important");
-      el.style.visibility = "visible";
-      el.style.opacity = "1";
+      el.style.setProperty("visibility", "visible", "important");
+      el.style.setProperty("opacity", "1", "important");
+      el.style.setProperty("z-index", "99999", "important");
     } else {
       console.warn("Elemento #auth-overlay não encontrado no DOM");
     }
@@ -48,10 +49,12 @@ document.addEventListener("DOMContentLoaded", () => {
   window.hideAuthOverlay = hideAuthOverlay;
 
   function setAuthFeedback(message, type = "error") {
-    if (!authFeedback) return;
-    authFeedback.textContent = message;
-    authFeedback.className = `auth-feedback ${message ? type : ""}`;
+    const feedback = document.getElementById("auth-feedback");
+    if (!feedback) return;
+    feedback.textContent = message;
+    feedback.className = `auth-feedback ${message ? type : ""}`;
   }
+  window.setAuthFeedback = setAuthFeedback;
 
   function setAuthMode(mode) {
     authMode = mode;
@@ -59,21 +62,52 @@ document.addEventListener("DOMContentLoaded", () => {
     document.querySelectorAll(".auth-signup-field").forEach((field) => {
       field.hidden = !isSignup;
     });
-    btnAuthModeSignin?.classList.toggle("active", !isSignup);
-    btnAuthModeSignup?.classList.toggle("active", isSignup);
-    btnAuthModeSignin?.setAttribute("aria-selected", String(!isSignup));
-    btnAuthModeSignup?.setAttribute("aria-selected", String(isSignup));
+    const btnSignin = document.getElementById("auth-mode-signin");
+    const btnSignup = document.getElementById("auth-mode-signup");
+    const authTitle = document.getElementById("auth-title");
+    const authDescription = document.getElementById("auth-description");
+    const btnSubmit = document.getElementById("btn-auth-submit");
+    const btnForgot = document.getElementById("btn-auth-forgot");
+    const authPasswordInput = document.getElementById("auth-password");
+
+    if (btnSignin) {
+      btnSignin.classList.toggle("active", !isSignup);
+      btnSignin.setAttribute("aria-selected", String(!isSignup));
+    }
+    if (btnSignup) {
+      btnSignup.classList.toggle("active", isSignup);
+      btnSignup.setAttribute("aria-selected", String(isSignup));
+    }
     if (authTitle) authTitle.textContent = isSignup ? "Crie sua conta" : "Acesse sua conta";
     if (authDescription) {
       authDescription.textContent = isSignup
         ? "Comece seu controle financeiro e mantenha seus dados sincronizados."
         : "Entre para acessar seus dados financeiros com segurança.";
     }
-    if (btnAuthSubmit) btnAuthSubmit.textContent = isSignup ? "Criar minha conta" : "Entrar";
-    if (btnAuthForgot) btnAuthForgot.hidden = isSignup;
+    if (btnSubmit) btnSubmit.textContent = isSignup ? "Criar minha conta" : "Entrar";
+    if (btnForgot) btnForgot.hidden = isSignup;
     if (authPasswordInput) authPasswordInput.autocomplete = isSignup ? "new-password" : "current-password";
     setAuthFeedback("");
   }
+  window.setAuthMode = setAuthMode;
+
+  window.handleLogoutOrLogin = async function(e) {
+    if (e && e.preventDefault) e.preventDefault();
+    if (window.currentUser) {
+      const confirmLog = await window.customConfirm("Deseja realmente desconectar e voltar ao Modo Local (Offline)?");
+      if (confirmLog) {
+        if (window.auth) {
+          await window.auth.signOut();
+        }
+        if (window.updateCloudUI) window.updateCloudUI(false, "");
+        if (window.updateSyncIndicator) window.updateSyncIndicator("offline");
+        await window.customAlert("Desconectado com sucesso!");
+        location.reload();
+      }
+    } else {
+      window.showAuthOverlay();
+    }
+  };
 
   function getAuthErrorMessage(error) {
     const messages = {
