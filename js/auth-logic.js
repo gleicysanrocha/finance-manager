@@ -284,7 +284,11 @@ function updateCloudUI(authorized, email) {
   const unauthorizedDiv = document.getElementById("cloud-info-unauthorized");
   const authorizedDiv = document.getElementById("cloud-info-authorized");
   const adminEmail = document.getElementById("admin-cloud-email");
-  
+  const dropdownLogoutBtn = document.getElementById("dropdown-logout-btn");
+  const profileEmail = document.getElementById("profile-display-email");
+  const profileUid = document.getElementById("profile-display-uid");
+  const profileSync = document.getElementById("profile-display-sync");
+
   if (authorizedDiv && unauthorizedDiv) {
     if (authorized) {
       unauthorizedDiv.style.display = "none";
@@ -293,6 +297,30 @@ function updateCloudUI(authorized, email) {
     } else {
       unauthorizedDiv.style.display = "flex";
       authorizedDiv.style.display = "none";
+    }
+  }
+
+  if (dropdownLogoutBtn) {
+    if (authorized) {
+      dropdownLogoutBtn.innerHTML = `<span>🚪</span> Sair da Conta`;
+      dropdownLogoutBtn.style.background = "linear-gradient(135deg, #475569 0%, #64748b 100%)";
+    } else {
+      dropdownLogoutBtn.innerHTML = `<span>🔑</span> Entrar / Conectar Conta`;
+      dropdownLogoutBtn.style.background = "linear-gradient(135deg, #097d52 0%, #0fb77a 100%)";
+    }
+  }
+
+  if (profileEmail) {
+    profileEmail.textContent = authorized ? email : "Modo Local (Offline)";
+  }
+  if (profileUid) {
+    profileUid.textContent = authorized && currentUser ? currentUser.uid : "offline";
+  }
+  if (profileSync) {
+    if (authorized) {
+      profileSync.innerHTML = `<span style="color: var(--color-success);">🟢</span> Sincronizado na Nuvem`;
+    } else {
+      profileSync.innerHTML = `<span>📴</span> Armazenamento Local (Somente este dispositivo)`;
     }
   }
 }
