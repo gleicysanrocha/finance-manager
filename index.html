@@ -937,7 +937,7 @@
             </div>
 
             <div style="display: flex; gap: 0.75rem; margin-top: 1.5rem; border-top: 1px solid var(--border-color); padding-top: 1.25rem;">
-              <button type="button" class="action-btn btn-card" id="dropdown-logout-btn" style="flex: 1; justify-content: center; background: linear-gradient(135deg, #097d52 0%, #0fb77a 100%); box-shadow: 0 4px 14px rgba(15, 183, 122, 0.25);">
+              <button type="button" class="action-btn btn-card" id="dropdown-logout-btn" onclick="window.handleLogoutOrLogin(event)" style="flex: 1; justify-content: center; background: linear-gradient(135deg, #097d52 0%, #0fb77a 100%); box-shadow: 0 4px 14px rgba(15, 183, 122, 0.25);">
                 🔑 Entrar / Conectar Conta
               </button>
               <button type="button" class="action-btn btn-card" id="dropdown-reset-btn" style="flex: 1; justify-content: center; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); box-shadow: 0 4px 14px rgba(239, 68, 68, 0.25);">
@@ -1568,15 +1568,15 @@
   <!-- TELA DE LOGIN / AUTENTICAÇÃO (FIREBASE) -->
   <div id="auth-overlay" class="auth-overlay" style="display: none;">
     <div class="auth-card" style="position: relative;">
-      <button type="button" id="btn-close-auth-modal" style="position: absolute; top: 1rem; right: 1rem; background: rgba(148, 163, 184, 0.15); border: none; font-size: 1.25rem; font-weight: bold; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; color: var(--text-main); display: flex; align-items: center; justify-content: center; z-index: 10000;" title="Fechar">&times;</button>
+      <button type="button" id="btn-close-auth-modal" onclick="window.hideAuthOverlay()" style="position: absolute; top: 1rem; right: 1rem; background: rgba(148, 163, 184, 0.15); border: none; font-size: 1.25rem; font-weight: bold; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; color: var(--text-main); display: flex; align-items: center; justify-content: center; z-index: 10000;" title="Fechar">&times;</button>
       <div class="auth-header">
         <div class="auth-logo-icon" id="auth-logo-svg"></div>
         <h2 id="auth-title">Acesse sua conta</h2>
         <p id="auth-description">Entre para acessar seus dados financeiros com segurança.</p>
       </div>
       <div class="auth-mode-switch" role="tablist" aria-label="Escolha entrar ou criar uma conta">
-        <button type="button" id="auth-mode-signin" class="active" role="tab" aria-selected="true">Entrar</button>
-        <button type="button" id="auth-mode-signup" role="tab" aria-selected="false">Criar conta</button>
+        <button type="button" id="auth-mode-signin" onclick="window.setAuthMode('signin')" class="active" role="tab" aria-selected="true">Entrar</button>
+        <button type="button" id="auth-mode-signup" onclick="window.setAuthMode('signup')" role="tab" aria-selected="false">Criar conta</button>
       </div>
       <form id="auth-form">
         <div class="form-group auth-signup-field" hidden>
@@ -1602,7 +1602,7 @@
       <div class="auth-divider">
         <span>ou</span>
       </div>
-      <button type="button" id="btn-auth-offline" class="btn-offline">
+      <button type="button" id="btn-auth-offline" onclick="window.hideAuthOverlay()" class="btn-offline">
         Continuar somente neste dispositivo
       </button>
       <p class="auth-privacy">Cada conta possui uma área privada e independente no Firebase.</p>
