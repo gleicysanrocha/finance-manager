@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -1716,40 +1716,42 @@
       }
 
       try {
-        if (!window.firebase || !firebase.apps.length) {
-          if (window.firebase) {
-            firebase.initializeApp(window.FIREBASE_CONFIG);
-          }
-        }
-        const auth = window.firebase ? firebase.auth() : null;
-        
         let loggedUser = null;
-        if (auth) {
+
+        // Usar Firebase Auth REST API — funciona em qualquer domínio, sem restrições
+        if (window.firebaseSignIn) {
           try {
-            const res = await auth.signInWithEmailAndPassword(email, password);
+            const res = await window.firebaseSignIn(email, password);
             loggedUser = res.user;
           } catch (e) {
-            console.warn("SignIn direct error:", e);
-            if (e.code === "auth/user-not-found" || e.code === "auth/invalid-credential") {
+            console.warn("SignIn REST error:", e.code || e.message);
+            // EMAIL_NOT_FOUND = usuário não existe ainda, tentar criar
+            if (e.code === "EMAIL_NOT_FOUND" || e.code === "auth/user-not-found") {
               try {
-                const res2 = await auth.createUserWithEmailAndPassword(email, password);
+                const res2 = await window.firebaseSignUp(email, password);
                 loggedUser = res2.user;
-              } catch (e2) {}
+              } catch (e2) {
+                throw e; // Re-lançar o erro original de login
+              }
+            } else {
+              throw e;
             }
           }
         }
 
         if (!loggedUser) {
-          loggedUser = {
-            uid: "usr-" + btoa(email).replace(/[^a-zA-Z0-9]/g, "").slice(0, 20),
-            email: email,
-            displayName: email.split("@")[0]
-          };
+          throw new Error("Não foi possível conectar ao Firebase. Verifique sua conexão.");
         }
 
         window.currentUser = loggedUser;
         window.isCloudEnabled = true;
-        localStorage.setItem("finance_manager_active_user", JSON.stringify(loggedUser));
+        localStorage.setItem("finance_manager_active_user", JSON.stringify({
+          uid: loggedUser.uid,
+          email: loggedUser.email,
+          displayName: loggedUser.displayName || loggedUser.email.split("@")[0],
+          idToken: loggedUser.idToken,
+          refreshToken: loggedUser.refreshToken
+        }));
 
         const directBox = document.getElementById("profile-direct-login-box");
         if (directBox) directBox.style.display = "none";
@@ -1762,11 +1764,18 @@
           await window.loadState();
         }
 
-        alert("🎉 Conectado com sucesso como " + email + "! Seus dados foram carregados.");
+        alert("🎉 Conectado com sucesso como " + email + "! Seus dados foram carregados da nuvem.");
         location.reload();
       } catch (err) {
         console.error("Direct login error:", err);
-        alert("Atenção: " + (err.message || err));
+        let msg = err.message || String(err);
+        if (msg.includes("INVALID_PASSWORD") || msg.includes("INVALID_LOGIN_CREDENTIALS")) {
+          msg = "Senha incorreta. Verifique e tente novamente.";
+        } else if (msg.includes("TOO_MANY_ATTEMPTS") || msg.includes("QUOTA")) {
+          msg = "Muitas tentativas. Aguarde alguns minutos e tente novamente.";
+        }
+        if (feedback) { feedback.textContent = msg; feedback.style.display = "block"; }
+        alert("Erro no login: " + msg);
       } finally {
         if (btn) {
           btn.disabled = false;
