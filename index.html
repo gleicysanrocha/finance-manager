@@ -936,6 +936,19 @@
               </div>
             </div>
 
+            <!-- Formulário de Login Direto no Perfil -->
+            <div id="profile-direct-login-box" style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 1rem; padding: 1rem; background: rgba(148, 163, 184, 0.08); border-radius: 8px; border: 1px solid var(--border-color);">
+              <h4 style="font-size: 0.88rem; font-weight: 700; color: var(--text-main);">🔑 Conectar sua conta em Nuvem</h4>
+              <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                <input type="email" id="profile-login-email" placeholder="Seu e-mail cadastrado" autocomplete="email" style="width: 100%; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-main); color: var(--text-main); font-size: 0.88rem;">
+                <input type="password" id="profile-login-password" placeholder="Sua senha" autocomplete="current-password" style="width: 100%; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-main); color: var(--text-main); font-size: 0.88rem;">
+                <button type="button" id="btn-profile-direct-login" onclick="window.executeDirectProfileLogin()" style="padding: 10px; border-radius: 6px; border: none; background: linear-gradient(135deg, #097d52 0%, #0fb77a 100%); color: #fff; font-weight: 700; font-size: 0.88rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem; box-shadow: 0 4px 14px rgba(15, 183, 122, 0.25);">
+                  🔓 Entrar e Carregar Meus Dados
+                </button>
+                <div id="profile-direct-login-feedback" style="font-size: 0.78rem; font-weight: 600; color: var(--color-danger); display: none;"></div>
+              </div>
+            </div>
+
             <div style="display: flex; gap: 0.75rem; margin-top: 1.5rem; border-top: 1px solid var(--border-color); padding-top: 1.25rem;">
               <button type="button" class="action-btn btn-card" id="dropdown-logout-btn" onclick="window.handleLogoutOrLogin(event)" style="flex: 1; justify-content: center; background: linear-gradient(135deg, #097d52 0%, #0fb77a 100%); box-shadow: 0 4px 14px rgba(15, 183, 122, 0.25);">
                 🔑 Entrar / Conectar Conta
