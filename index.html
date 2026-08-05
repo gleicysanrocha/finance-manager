@@ -1748,14 +1748,21 @@
         }
 
         window.currentUser = loggedUser;
+        window.isCloudEnabled = true;
         localStorage.setItem("finance_manager_active_user", JSON.stringify(loggedUser));
+
+        const directBox = document.getElementById("profile-direct-login-box");
+        if (directBox) directBox.style.display = "none";
 
         if (window.updateCloudUI) window.updateCloudUI(true, email);
         if (window.updateSyncIndicator) window.updateSyncIndicator("online");
-        if (window.loadState) await window.loadState();
         if (window.updateAdminUI) window.updateAdminUI();
 
-        alert("🎉 Login realizado com sucesso como " + email + "! Carregando seus dados...");
+        if (window.loadState) {
+          await window.loadState();
+        }
+
+        alert("🎉 Conectado com sucesso como " + email + "! Seus dados foram carregados.");
         location.reload();
       } catch (err) {
         console.error("Direct login error:", err);
