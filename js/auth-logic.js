@@ -105,7 +105,32 @@ document.addEventListener("DOMContentLoaded", () => {
         location.reload();
       }
     } else {
-      window.showAuthOverlay();
+      const overlay = document.getElementById("auth-overlay");
+      if (overlay) {
+        overlay.style.setProperty("display", "flex", "important");
+        overlay.style.setProperty("visibility", "visible", "important");
+        overlay.style.setProperty("opacity", "1", "important");
+        overlay.style.setProperty("z-index", "99999", "important");
+      }
+      
+      // Se por algum motivo a modal não for visível, oferecer login rápido emergencial por prompt
+      if (!overlay || overlay.offsetWidth === 0 || overlay.offsetHeight === 0 || window.getComputedStyle(overlay).display === "none") {
+        const email = prompt("Digite seu e-mail cadastrado no Firebase para entrar:");
+        if (email) {
+          const pass = prompt("Digite sua senha:");
+          if (pass && window.auth) {
+            try {
+              const res = await window.auth.signInWithEmailAndPassword(email.trim(), pass);
+              if (res.user) {
+                alert("Login efetuado com sucesso! Sincronizando dados...");
+                location.reload();
+              }
+            } catch (err) {
+              alert("Erro ao entrar: " + (err.message || "Senha ou e-mail incorretos"));
+            }
+          }
+        }
+      }
     }
   };
 
