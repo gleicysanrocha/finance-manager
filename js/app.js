@@ -17,8 +17,8 @@ document.addEventListener("DOMContentLoaded", () => {
     userName: "Usuário",
     tagline: "Não se trata de quanto você ganha, mas de como você gerencia.",
     theme: "light",
-    selectedMonth: 4, // Maio (0-indexed: 4)
-    selectedYear: 2026,
+    selectedMonth: new Date().getMonth(), // Mês atual em tempo real
+    selectedYear: new Date().getFullYear(), // Ano atual em tempo real
     currentTab: "despesas",
     searchQuery: "",
     selectedCardId: "card-1",
@@ -307,10 +307,21 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
+    const now = new Date();
     const monthSelect = document.getElementById("select-month");
     const yearSelect = document.getElementById("select-year");
-    if (monthSelect) state.selectedMonth = parseInt(monthSelect.value);
-    if (yearSelect) state.selectedYear = parseInt(yearSelect.value);
+    if (monthSelect) {
+      if (!monthSelect.dataset.userSet) {
+        monthSelect.value = String(state.selectedMonth !== undefined ? state.selectedMonth : now.getMonth());
+      }
+      state.selectedMonth = parseInt(monthSelect.value);
+    }
+    if (yearSelect) {
+      if (!yearSelect.dataset.userSet) {
+        yearSelect.value = String(state.selectedYear !== undefined ? state.selectedYear : now.getFullYear());
+      }
+      state.selectedYear = parseInt(yearSelect.value);
+    }
     
     updateAllDashboard();
 
@@ -2484,10 +2495,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (selectMonth && selectYear) {
     selectMonth.addEventListener("change", () => {
+      selectMonth.dataset.userSet = "true";
       state.selectedMonth = parseInt(selectMonth.value);
       updateAllDashboard();
     });
     selectYear.addEventListener("change", () => {
+      selectYear.dataset.userSet = "true";
       state.selectedYear = parseInt(selectYear.value);
       updateAllDashboard();
     });
