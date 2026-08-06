@@ -2637,6 +2637,8 @@ document.addEventListener("DOMContentLoaded", () => {
   // Caixa de Busca
   const searchInput = document.getElementById("search-transactions");
   if (searchInput) {
+    searchInput.value = ""; // Garantir que inicia limpo para ignorar autofill do navegador
+    state.searchQuery = "";
     searchInput.addEventListener("input", (e) => {
       state.searchQuery = e.target.value;
       renderTransactions();
