@@ -818,49 +818,7 @@
             </div>
           </div>
 
-          <div class="glass-effect" id="admin-manage-users-card" style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem;">
-            <h3 style="font-size: 1.05rem; font-weight: 700;">Gerenciar Outro Usuário (Admin)</h3>
-            <form id="form-admin-manage-user" style="display: flex; flex-direction: column; gap: 1.15rem;">
-              <p style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.4; margin: 0;">
-                Pesquise um usuário pelo e-mail registrado para ativar ou reverter o plano Premium na nuvem.
-              </p>
-              <div class="form-group">
-                <label for="manage-user-email">E-mail do Usuário</label>
-                <input type="email" id="manage-user-email" placeholder="cliente@email.com" required>
-              </div>
-              <div class="form-row">
-                <div class="form-group">
-                  <label for="manage-user-tier">Novo Plano</label>
-                  <select id="manage-user-tier" required>
-                    <option value="premium" selected>👑 Premium</option>
-                    <option value="free">🔒 Gratuito</option>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label for="manage-admin-secret">Senha Admin (Secret)</label>
-                  <input type="password" id="manage-admin-secret" placeholder="ADMIN_SECRET_KEY" required>
-                </div>
-              </div>
-              <button type="submit" class="btn-submit btn-os-submit" id="btn-submit-manage-user" style="width: 100%; border: none; padding: 0.75rem;">
-                Atualizar Plano do Usuário 🚀
-              </button>
-            </form>
-          </div>
 
-          <div class="glass-effect" id="admin-tier-card" style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem;">
-            <h3 style="font-size: 1.05rem; font-weight: 700;">Assinatura & Plano (Admin)</h3>
-            <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-              <p style="font-size: 0.88rem; color: var(--text-muted);">
-                Status Atual: <span id="admin-tier-status" style="font-weight: 800;">Carregando...</span>
-              </p>
-              <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.25rem;">
-                Seu ID de Usuário (UID):<br><code id="admin-user-uid" style="font-size: 0.72rem; background: rgba(148, 163, 184, 0.12); padding: 4px 8px; border-radius: 6px; word-break: break-all; color: var(--text-main); font-weight: 700; margin-top: 0.25rem; display: inline-block;">offline</code>
-              </p>
-              <button type="button" class="action-btn btn-expense" id="btn-admin-toggle-tier" style="justify-content: flex-start; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); width: 100%; border: none;">
-                👑 Ativar Plano Premium (Admin)
-              </button>
-            </div>
-          </div>
 
           <div class="glass-effect" style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem;">
             <h3 style="font-size: 1.05rem; font-weight: 700;">Segurança & Dados</h3>
@@ -962,21 +920,26 @@
           <!-- Card de Informações da Licença -->
           <div class="glass-effect" style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem;">
             <h3 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 0.25rem; display: flex; align-items: center; gap: 0.5rem;">
-              👑 Status da Licença
+              💎 Status do Sistema
             </h3>
             
-            <div id="profile-tier-badge-container" style="margin-top: 0.5rem;">
-              <span id="profile-tier-badge" style="background: linear-gradient(135deg, #64748b 0%, #94a3b8 100%); color: white; padding: 6px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: 800; display: inline-block;">PLANO GRATUITO</span>
+            <div style="margin-top: 0.5rem;">
+              <span style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 6px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: 800; display: inline-block;">ACESSO COMPLETO & ILIMITADO</span>
             </div>
 
             <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.5rem; font-size: 0.85rem; color: var(--text-muted); line-height: 1.5;">
-              <div id="profile-tier-limits">
-                <!-- Limites do plano mostrados aqui -->
-              </div>
+              <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem;">
+                <li>✅ <strong>Cartões de Crédito:</strong> Ilimitados</li>
+                <li>✅ <strong>Contas Bancárias:</strong> Ilimitadas</li>
+                <li>✅ <strong>Metas & Objetivos:</strong> Ilimitados</li>
+                <li>✅ <strong>Relatórios & BI:</strong> Totalmente Liberados</li>
+                <li>✅ <strong>Lançamentos mensais:</strong> Ilimitados</li>
+                <li>✅ <strong>Sincronização Nuvem:</strong> Ativa e Gratuita</li>
+              </ul>
             </div>
 
-            <div id="profile-upgrade-action-container" style="margin-top: auto; padding-top: 1rem;">
-              <!-- Botão de Upgrade ou Mensagem de Sucesso -->
+            <div style="margin-top: auto; padding-top: 1rem; background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.2); padding: 1rem; border-radius: 8px; text-align: center; color: var(--color-success); font-weight: 700; font-size: 0.85rem;">
+              🎉 Todos os recursos premium estão liberados gratuitamente para você e sua equipe!
             </div>
           </div>
 
