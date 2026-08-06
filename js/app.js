@@ -22,7 +22,7 @@ document.addEventListener("DOMContentLoaded", () => {
     currentTab: "despesas",
     searchQuery: "",
     selectedCardId: "card-1",
-    tier: "free"
+    tier: "premium"
   };
 
   // Frases financeiras rotativas para o Tagline
@@ -219,7 +219,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const storedTier = getLocalValue("tier");
-    state.tier = storedTier || "free";
+    state.tier = "premium";
 
     const storedCards = getLocalValue("cards");
     const storedExpenses = getLocalValue("expenses");
@@ -310,8 +310,8 @@ document.addEventListener("DOMContentLoaded", () => {
           state.userName = cloudState.userName || docData.userName || currentUser.displayName || state.userName || "Usuário";
           state.tagline = cloudState.tagline || docData.tagline || state.tagline || DEFAULT_TAGLINE;
           state.profilePhoto = cloudState.profilePhoto || docData.profilePhoto || state.profilePhoto || "";
-          state.tier = docData.tier || cloudState.tier || state.tier || "free";
-          localStorage.setItem(getLocalStorageKey("tier"), state.tier);
+          state.tier = "premium";
+          localStorage.setItem(getLocalStorageKey("tier"), "premium");
 
           if (cloudState.theme || docData.theme) {
             state.theme = cloudState.theme || docData.theme;
