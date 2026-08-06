@@ -97,12 +97,48 @@ window.firebaseSignUp = async function(email, password) {
 // ============================================================================
 // FIRESTORE via REST API — Não depende do Firebase SDK Auth
 // ============================================================================
+window.firebaseRefreshToken = async function() {
+  if (!currentUser || !currentUser.refreshToken) return null;
+  try {
+    const url = "https://securetoken.googleapis.com/v1/token?key=" + FIREBASE_API_KEY;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: "grant_type=refresh_token&refresh_token=" + encodeURIComponent(currentUser.refreshToken)
+    });
+    if (!res.ok) throw new Error("Failed to refresh token");
+    const data = await res.json();
+    if (data.id_token) {
+      currentUser.idToken = data.id_token;
+      if (data.refresh_token) currentUser.refreshToken = data.refresh_token;
+      localStorage.setItem("finance_manager_active_user", JSON.stringify(currentUser));
+      window.currentUser = currentUser;
+      return data.id_token;
+    }
+  } catch (err) {
+    console.error("Erro ao renovar token:", err);
+  }
+  return null;
+};
+
 window.firestoreGet = async function(docPath) {
-  const token = currentUser && currentUser.idToken ? currentUser.idToken : null;
-  const url = "https://firestore.googleapis.com/v1/projects/" + FIREBASE_PROJECT_ID + "/databases/(default)/documents/" + docPath + (token ? "" : "?key=" + FIREBASE_API_KEY);
-  const headers = { "Content-Type": "application/json" };
+  let token = currentUser && currentUser.idToken ? currentUser.idToken : null;
+  const buildUrl = (t) => "https://firestore.googleapis.com/v1/projects/" + FIREBASE_PROJECT_ID + "/databases/(default)/documents/" + docPath + (t ? "" : "?key=" + FIREBASE_API_KEY);
+  
+  let headers = { "Content-Type": "application/json" };
   if (token) headers["Authorization"] = "Bearer " + token;
-  const res = await fetch(url, { headers });
+  
+  let res = await fetch(buildUrl(token), { headers });
+  
+  if (res.status === 401 && currentUser && currentUser.refreshToken) {
+    console.log("Token expirado (401), tentando renovar...");
+    const newToken = await window.firebaseRefreshToken();
+    if (newToken) {
+      headers["Authorization"] = "Bearer " + newToken;
+      res = await fetch(buildUrl(newToken), { headers });
+    }
+  }
+
   if (!res.ok) {
     if (res.status === 404) return null;
     throw new Error("Firestore GET error " + res.status);
@@ -112,15 +148,17 @@ window.firestoreGet = async function(docPath) {
 };
 
 window.firestoreSet = async function(docPath, data) {
-  const token = currentUser && currentUser.idToken ? currentUser.idToken : null;
+  let token = currentUser && currentUser.idToken ? currentUser.idToken : null;
   if (!token) { console.warn("Sem token para escrever no Firestore"); return; }
+  
   const url = "https://firestore.googleapis.com/v1/projects/" + FIREBASE_PROJECT_ID + "/databases/(default)/documents/" + docPath;
-  const headers = { "Content-Type": "application/json", "Authorization": "Bearer " + token };
+  let headers = { "Content-Type": "application/json", "Authorization": "Bearer " + token };
+  
   // Converter objeto JS para formato Firestore
   function toFirestoreValue(val) {
     if (val === null || val === undefined) return { nullValue: null };
     if (typeof val === "boolean") return { booleanValue: val };
-    if (typeof val === "number") return { integerValue: String(Math.round(val)) };
+    if (typeof val === "number") return { doubleValue: val }; // Usar doubleValue para evitar truncate de decimais (como centavos) em inteiros
     if (typeof val === "string") return { stringValue: val };
     if (Array.isArray(val)) return { arrayValue: { values: val.map(toFirestoreValue) } };
     if (typeof val === "object") {
@@ -130,13 +168,29 @@ window.firestoreSet = async function(docPath, data) {
     }
     return { stringValue: String(val) };
   }
+  
   const fields = {};
   for (const k of Object.keys(data)) fields[k] = toFirestoreValue(data[k]);
-  const res = await fetch(url + "?updateMask.fieldPaths=" + Object.keys(data).join("&updateMask.fieldPaths="), {
+  
+  let res = await fetch(url + "?updateMask.fieldPaths=" + Object.keys(data).join("&updateMask.fieldPaths="), {
     method: "PATCH",
     headers,
     body: JSON.stringify({ fields })
   });
+
+  if (res.status === 401 && currentUser && currentUser.refreshToken) {
+    console.log("Token expirado (401) ao salvar, tentando renovar...");
+    const newToken = await window.firebaseRefreshToken();
+    if (newToken) {
+      headers["Authorization"] = "Bearer " + newToken;
+      res = await fetch(url + "?updateMask.fieldPaths=" + Object.keys(data).join("&updateMask.fieldPaths="), {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify({ fields })
+      });
+    }
+  }
+
   if (!res.ok) {
     const err = await res.text();
     throw new Error("Firestore SET error " + res.status + ": " + err);
@@ -198,6 +252,8 @@ async function initFirebase() {
     // Usar REST API para auth — não depende de domínio autorizado
     // Se já temos currentUser do localStorage, carregar dados diretamente
     if (currentUser && currentUser.uid) {
+      window.currentUser = currentUser;
+      window.isCloudEnabled = true;
       updateSyncIndicator("online");
       if (window.updateCloudUI) window.updateCloudUI(true, currentUser.email);
       const dropdownLogoutBtn = document.getElementById("dropdown-logout-btn");
