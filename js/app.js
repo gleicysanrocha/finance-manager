@@ -1333,6 +1333,39 @@ document.addEventListener("DOMContentLoaded", () => {
 
     let accountsHTML = "";
     state.accounts.forEach(acc => {
+      // Calcular saldo dinâmico:
+      // Saldo Inicial + (Soma de todas as receitas concluídas vinculadas a essa conta) - (Soma de todas as despesas pagas vinculadas a essa conta)
+      // Como a conta pode ser vinculada por nome (ex: "Nubank") ou logo (ex: "Nu"), buscamos por ambos.
+      
+      const accKey = acc.name.toLowerCase().trim();
+      const accLogoKey = acc.logo.toLowerCase().trim();
+
+      // Soma das receitas recebidas (categoria/status: "Recebido") vinculadas a esta conta
+      const accRevenuesSum = state.revenues
+        .filter(r => {
+          const isReceived = (r.category || "Recebido") === "Recebido";
+          const matchAccount = r.description.toLowerCase().includes(accKey) || 
+                              r.description.toLowerCase().includes(accLogoKey);
+          return isReceived && matchAccount;
+        })
+        .reduce((sum, r) => sum + r.value, 0);
+
+      // Soma das despesas pagas (status: "Pagas") vinculadas a esta conta (via descrição ou via cartão de débito)
+      const accExpensesSum = state.expenses
+        .filter(e => {
+          const isPaid = e.status === "Pagas";
+          const matchAccount = e.description.toLowerCase().includes(accKey) || 
+                              e.description.toLowerCase().includes(accLogoKey) ||
+                              (e.cardId === "debito" && e.description.toLowerCase().includes(accKey)) ||
+                              (e.cardId && state.cards.find(c => c.id === e.cardId)?.name.toLowerCase().includes(accKey));
+          
+          const valToUse = e.paidValue !== undefined ? e.paidValue : e.value;
+          return isPaid && matchAccount;
+        })
+        .reduce((sum, e) => sum + (e.paidValue !== undefined ? e.paidValue : e.value), 0);
+
+      const dynamicBalance = acc.balance + accRevenuesSum - accExpensesSum;
+
       accountsHTML += `
         <div class="glass-effect" style="padding: 1.5rem; background: ${acc.color}; color: white; display: flex; flex-direction: column; gap: 1.5rem; box-shadow: 0 10px 20px ${acc.shadow || 'rgba(0,0,0,0.1)'}; position: relative; overflow: hidden; border-radius: var(--radius-lg); transition: var(--transition);" id="acc-card-${acc.id}">
           <div style="display: flex; justify-content: space-between; align-items: flex-start;">
@@ -1351,8 +1384,8 @@ document.addEventListener("DOMContentLoaded", () => {
             </div>
           </div>
           <div>
-            <span style="font-size: 0.68rem; opacity: 0.85;">Saldo Disponível</span>
-            <div style="font-size: 1.75rem; font-weight: 800; letter-spacing: -0.5px;">${formatCurrency(acc.balance)}</div>
+            <span style="font-size: 0.68rem; opacity: 0.85;">Saldo Disponível (Conciliado)</span>
+            <div style="font-size: 1.75rem; font-weight: 800; letter-spacing: -0.5px;">${formatCurrency(dynamicBalance)}</div>
           </div>
           <div style="border-top: 1px solid rgba(255,255,255,0.15); padding-top: 0.5rem; font-size: 0.72rem; display: flex; justify-content: space-between; opacity: 0.8;">
             <span>${acc.agency}</span>
