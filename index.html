@@ -46,7 +46,6 @@
           <li><a href="#" class="nav-item active" data-tab="dashboard"><span class="nav-icon" id="nav-icon-budget"></span>Orçamentos</a></li>
           <li><a href="#" class="nav-item" data-tab="recorrentes"><span class="nav-icon" id="nav-icon-recurring"></span>Recorrentes</a></li>
           <li><a href="#" class="nav-item" data-tab="metas"><span class="nav-icon" id="nav-icon-goal"></span>Metas</a></li>
-          <li><a href="#" class="nav-item" data-tab="contas"><span class="nav-icon" id="nav-icon-account"></span>Contas</a></li>
           <li><a href="#" class="nav-item" data-tab="projetos"><span class="nav-icon" id="nav-icon-projects"></span>Projetos</a></li>
           <li><a href="#" class="nav-item" data-tab="relatorios"><span class="nav-icon" id="nav-icon-report"></span>Relatórios</a></li>
           <li><a href="#" class="nav-item" data-tab="perfil"><span class="nav-icon" id="nav-icon-profile"></span>Minha Conta</a></li>
@@ -511,23 +510,7 @@
         </section>
       </div>
 
-      <!-- VISÃO 4: CONTAS BANCÁRIAS -->
-      <div id="view-contas" class="tab-view" style="display: none;">
-        <section class="welcome-filter-section">
-          <div class="welcome-text">
-            <h2>Contas & Saldos Liquidos 🏦</h2>
-            <p>Controle os saldos líquidos de todas as suas carteiras e contas vinculadas.</p>
-          </div>
-          <button class="action-btn btn-expense" style="padding: 0.6rem 1.25rem; font-size: 0.88rem; width: auto;" id="btn-nova-conta">
-            + Vincular Conta
-          </button>
-        </section>
 
-        <!-- Grade de Saldos Bancários -->
-        <section id="bank-accounts-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem; margin-top: 1.5rem;">
-          <!-- Os cards de contas bancárias dinâmicas serão injetados aqui via JS -->
-        </section>
-      </div>
 
       <!-- VISÃO 5: RELATÓRIOS -->
       <div id="view-relatorios" class="tab-view" style="display: none;">
@@ -1163,70 +1146,7 @@
     </div>
   </dialog>
 
-  <!-- 5. Modal Novo Banco / Conta -->
-  <dialog class="premium-modal glass-effect" id="modal-conta-dialog">
-    <div class="modal-content">
-      <header class="modal-header">
-        <h3 id="modal-conta-title">Vincular Nova Conta</h3>
-        <button class="modal-close-btn" id="close-modal-conta" aria-label="Fechar">&times;</button>
-      </header>
-      <form id="form-nova-conta" method="dialog">
-        <input type="hidden" id="acc-id">
-        <div class="form-row">
-          <div class="form-group">
-            <label for="acc-name">Nome do Banco / Conta</label>
-            <input type="text" id="acc-name" placeholder="Ex: Nubank, Itaú, Carteira" required>
-          </div>
-          <div class="form-group">
-            <label for="acc-type">Tipo de Conta</label>
-            <select id="acc-type" required>
-              <option value="CONTA DIGITAL" selected>Conta Digital</option>
-              <option value="CONTA CORRENTE">Conta Corrente</option>
-              <option value="POUPANÇA">Poupança</option>
-              <option value="CARTEIRA PRINCIPAL">Carteira Principal</option>
-              <option value="INVESTIMENTOS">Investimentos</option>
-            </select>
-          </div>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label for="acc-logo">Sigla / Ícone (Máx 4 caracteres ou Emoji)</label>
-            <input type="text" id="acc-logo" maxlength="4" placeholder="Ex: Nu, i, 💰" required>
-          </div>
-          <div class="form-group">
-            <label for="acc-balance">Saldo Inicial / Atual (R$)</label>
-            <input type="number" step="0.01" id="acc-balance" placeholder="0,00" required>
-          </div>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label for="acc-agency">Agência / Detalhe 1</label>
-            <input type="text" id="acc-agency" placeholder="Ex: Agência 0001 ou 100% CDI" required>
-          </div>
-          <div class="form-group">
-            <label for="acc-number">Conta / Detalhe 2</label>
-            <input type="text" id="acc-number" placeholder="Ex: Conta 12345-6 ou Nubank Asset" required>
-          </div>
-        </div>
-        </div>
-        <div class="form-group">
-          <label for="acc-color">Estilo de Cor (Gradiente)</label>
-          <select id="acc-color" required>
-            <option value="linear-gradient(135deg, #4f1d7a 0%, #830ad1 100%)">Nubank Roxo (Original)</option>
-            <option value="linear-gradient(135deg, #e05e00 0%, #ec8b16 100%)">Itaú Laranja (Original)</option>
-            <option value="linear-gradient(135deg, #02594a 0%, #0d9488 100%)">Reserva Verde Teal (Original)</option>
-            <option value="linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)">Azul Royal</option>
-            <option value="linear-gradient(135deg, #0f172a 0%, #334155 100%)">Grafite Premium</option>
-            <option value="linear-gradient(135deg, #dc2626 0%, #f43f5e 100%)">Vermelho Coral</option>
-          </select>
-        </div>
-        <footer class="modal-footer">
-          <button type="button" class="btn-cancel" id="btn-cancelar-conta">Cancelar</button>
-          <button type="submit" class="btn-submit btn-expense-submit">Salvar Conta</button>
-        </footer>
-      </form>
-    </div>
-  </dialog>
+
 
   <!-- 6. Modal Nova Despesa Recorrente -->
   <dialog class="premium-modal glass-effect" id="modal-recorrente-dialog">
