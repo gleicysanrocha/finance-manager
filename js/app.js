@@ -1344,23 +1344,61 @@ document.addEventListener("DOMContentLoaded", () => {
       const accRevenuesSum = state.revenues
         .filter(r => {
           const isReceived = (r.category || "Recebido") === "Recebido";
-          const matchAccount = r.description.toLowerCase().includes(accKey) || 
+          
+          // Verificar se a receita cita alguma conta especificamente
+          const matchesThis = r.description.toLowerCase().includes(accKey) || 
                               r.description.toLowerCase().includes(accLogoKey);
-          return isReceived && matchAccount;
+          
+          if (matchesThis) return isReceived;
+
+          // Se for a conta principal, ela recebe as receitas que não pertencem a NENHUMA outra conta cadastrada
+          if (acc.isPrimary) {
+            const matchesAnyOther = state.accounts.some(otherAcc => {
+              if (otherAcc.id === acc.id) return false;
+              const ok = otherAcc.name.toLowerCase().trim();
+              const ol = otherAcc.logo.toLowerCase().trim();
+              return r.description.toLowerCase().includes(ok) || r.description.toLowerCase().includes(ol);
+            });
+            return isReceived && !matchesAnyOther;
+          }
+          
+          return false;
         })
         .reduce((sum, r) => sum + r.value, 0);
 
-      // Soma das despesas pagas (status: "Pagas") vinculadas a esta conta (via descrição ou via cartão de débito)
+      // Soma das despesas pagas (status: "Pagas") vinculadas a esta conta
       const accExpensesSum = state.expenses
         .filter(e => {
           const isPaid = e.status === "Pagas";
-          const matchAccount = e.description.toLowerCase().includes(accKey) || 
+          
+          // Verificar se a despesa cita alguma conta especificamente (no texto, no cartão de débito ou no cartão associado)
+          const matchesThis = e.description.toLowerCase().includes(accKey) || 
                               e.description.toLowerCase().includes(accLogoKey) ||
                               (e.cardId === "debito" && e.description.toLowerCase().includes(accKey)) ||
                               (e.cardId && state.cards.find(c => c.id === e.cardId)?.name.toLowerCase().includes(accKey));
           
-          const valToUse = e.paidValue !== undefined ? e.paidValue : e.value;
-          return isPaid && matchAccount;
+          if (matchesThis) return isPaid;
+
+          // Se for a conta principal, ela absorve as despesas pagas que não pertencem a NENHUMA outra conta cadastrada
+          // (Desconsiderando despesas feitas em cartões de crédito específicos que não possuem o nome desta conta no cartão)
+          if (acc.isPrimary) {
+            const hasOtherCardAssoc = e.cardId && e.cardId.startsWith("card-") && 
+                                      !state.cards.find(c => c.id === e.cardId)?.name.toLowerCase().includes(accKey);
+            if (hasOtherCardAssoc) return false; // Despesas em outros cartões de crédito não saem da conta corrente principal de imediato
+
+            const matchesAnyOther = state.accounts.some(otherAcc => {
+              if (otherAcc.id === acc.id) return false;
+              const ok = otherAcc.name.toLowerCase().trim();
+              const ol = otherAcc.logo.toLowerCase().trim();
+              return e.description.toLowerCase().includes(ok) || 
+                     e.description.toLowerCase().includes(ol) ||
+                     (e.cardId === "debito" && e.description.toLowerCase().includes(ok)) ||
+                     (e.cardId && state.cards.find(c => c.id === e.cardId)?.name.toLowerCase().includes(ok));
+            });
+            return isPaid && !matchesAnyOther;
+          }
+
+          return false;
         })
         .reduce((sum, e) => sum + (e.paidValue !== undefined ? e.paidValue : e.value), 0);
 
@@ -1370,7 +1408,7 @@ document.addEventListener("DOMContentLoaded", () => {
         <div class="glass-effect" style="padding: 1.5rem; background: ${acc.color}; color: white; display: flex; flex-direction: column; gap: 1.5rem; box-shadow: 0 10px 20px ${acc.shadow || 'rgba(0,0,0,0.1)'}; position: relative; overflow: hidden; border-radius: var(--radius-lg); transition: var(--transition);" id="acc-card-${acc.id}">
           <div style="display: flex; justify-content: space-between; align-items: flex-start;">
             <div>
-              <span style="font-size: 0.65rem; font-weight: 800; letter-spacing: 1px; opacity: 0.85;">${acc.type.toUpperCase()}</span>
+              <span style="font-size: 0.65rem; font-weight: 800; letter-spacing: 1px; opacity: 0.85;">${acc.type.toUpperCase()}${acc.isPrimary ? ' ⭐ PRINCIPAL' : ''}</span>
               <h4 style="font-size: 1.2rem; font-weight: 700; margin-top: 0.1rem;">${acc.name}</h4>
             </div>
             <div style="display: flex; align-items: center; gap: 0.5rem;">
@@ -1439,6 +1477,10 @@ document.addEventListener("DOMContentLoaded", () => {
           document.getElementById("acc-agency").value = account.agency;
           document.getElementById("acc-number").value = account.accountNumber;
           document.getElementById("acc-color").value = account.color;
+          const primaryChk = document.getElementById("acc-is-primary");
+          if (primaryChk) {
+            primaryChk.checked = !!account.isPrimary;
+          }
 
           document.getElementById("modal-conta-title").innerText = "Editar Conta Bancária";
 
@@ -3381,6 +3423,14 @@ document.addEventListener("DOMContentLoaded", () => {
       else if (color.includes("#334155")) shadow = "rgba(51, 65, 85, 0.2)";
       else if (color.includes("#f43f5e")) shadow = "rgba(244, 63, 94, 0.2)";
 
+      const primaryChk = document.getElementById("acc-is-primary");
+      const isPrimary = primaryChk ? primaryChk.checked : false;
+
+      // Se esta conta foi marcada como principal, desmarcar todas as outras
+      if (isPrimary) {
+        state.accounts.forEach(a => { a.isPrimary = false; });
+      }
+
       if (id) {
         const acc = state.accounts.find(a => a.id === id);
         if (acc) {
@@ -3392,6 +3442,7 @@ document.addEventListener("DOMContentLoaded", () => {
           acc.accountNumber = accountNumber;
           acc.color = color;
           acc.shadow = shadow;
+          acc.isPrimary = isPrimary;
         }
       } else {
         const newAccount = {
@@ -3403,7 +3454,8 @@ document.addEventListener("DOMContentLoaded", () => {
           agency,
           accountNumber,
           color,
-          shadow
+          shadow,
+          isPrimary
         };
         state.accounts.push(newAccount);
       }
