@@ -1208,16 +1208,23 @@
             <input type="text" id="acc-number" placeholder="Ex: Conta 12345-6 ou Nubank Asset" required>
           </div>
         </div>
-        <div class="form-group">
-          <label for="acc-color">Estilo de Cor (Gradiente)</label>
-          <select id="acc-color" required>
-            <option value="linear-gradient(135deg, #4f1d7a 0%, #830ad1 100%)">Nubank Roxo (Original)</option>
-            <option value="linear-gradient(135deg, #e05e00 0%, #ec8b16 100%)">Itaú Laranja (Original)</option>
-            <option value="linear-gradient(135deg, #02594a 0%, #0d9488 100%)">Reserva Verde Teal (Original)</option>
-            <option value="linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)">Azul Royal</option>
-            <option value="linear-gradient(135deg, #0f172a 0%, #334155 100%)">Grafite Premium</option>
-            <option value="linear-gradient(135deg, #dc2626 0%, #f43f5e 100%)">Vermelho Coral</option>
-          </select>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="acc-color">Estilo de Cor (Gradiente)</label>
+            <select id="acc-color" required>
+              <option value="linear-gradient(135deg, #4f1d7a 0%, #830ad1 100%)">Nubank Roxo (Original)</option>
+              <option value="linear-gradient(135deg, #e05e00 0%, #ec8b16 100%)">Itaú Laranja (Original)</option>
+              <option value="linear-gradient(135deg, #02594a 0%, #0d9488 100%)">Reserva Verde Teal (Original)</option>
+              <option value="linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)">Azul Royal</option>
+              <option value="linear-gradient(135deg, #0f172a 0%, #334155 100%)">Grafite Premium</option>
+              <option value="linear-gradient(135deg, #dc2626 0%, #f43f5e 100%)">Vermelho Coral</option>
+            </select>
+          </div>
+          <div class="form-group" style="display: flex; align-items: center; gap: 0.5rem; padding-top: 1.5rem;">
+            <input type="checkbox" id="acc-is-primary" style="width: 20px; height: 20px; cursor: pointer;">
+            <label for="acc-is-primary" style="font-weight: 700; cursor: pointer; display: inline-block; margin: 0; user-select: none;">⭐ Definir como Conta Principal</label>
+          </div>
         </div>
         <footer class="modal-footer">
           <button type="button" class="btn-cancel" id="btn-cancelar-conta">Cancelar</button>
