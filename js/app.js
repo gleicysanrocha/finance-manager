@@ -1319,101 +1319,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // 6b. RENDERIZADOR DE CONTAS BANCÁRIAS DINÂMICAS
   // ==========================================================================
   function renderBankAccounts() {
-    const container = document.getElementById("bank-accounts-container");
-    if (!container) return;
-
-    if (state.accounts.length === 0) {
-      container.innerHTML = `
-        <div class="empty-state-container" style="grid-column: 1 / -1; padding: 3rem 1rem; text-align: center; width: 100%;">
-          <div class="empty-illustration" style="width: 50px; height: 50px; opacity: 0.3; margin: 0 auto 1rem;">${ICONS.walletFilled}</div>
-          <p style="color: var(--text-muted); font-size: 0.95rem;">Nenhuma conta bancária vinculada.</p>
-        </div>`;
-      return;
-    }
-
-    let accountsHTML = "";
-    state.accounts.forEach(acc => {
-      accountsHTML += `
-        <div class="glass-effect" style="padding: 1.5rem; background: ${acc.color}; color: white; display: flex; flex-direction: column; gap: 1.5rem; box-shadow: 0 10px 20px ${acc.shadow || 'rgba(0,0,0,0.1)'}; position: relative; overflow: hidden; border-radius: var(--radius-lg); transition: var(--transition);" id="acc-card-${acc.id}">
-          <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-            <div>
-              <span style="font-size: 0.65rem; font-weight: 800; letter-spacing: 1px; opacity: 0.85;">${acc.type.toUpperCase()}</span>
-              <h4 style="font-size: 1.2rem; font-weight: 700; margin-top: 0.1rem;">${acc.name}</h4>
-            </div>
-            <div style="display: flex; align-items: center; gap: 0.5rem;">
-              <button class="edit-account-btn" data-id="${acc.id}" title="Editar esta conta" style="background: rgba(255, 255, 255, 0.15); border: none; border-radius: 6px; color: rgba(255, 255, 255, 0.85); cursor: pointer; display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0.35rem; transition: var(--transition-fast);">
-                ${ICONS.edit}
-              </button>
-              <button class="delete-account-btn" data-id="${acc.id}" title="Excluir esta conta" style="background: rgba(255, 255, 255, 0.15); border: none; border-radius: 6px; color: rgba(255, 255, 255, 0.85); cursor: pointer; display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0.35rem; transition: var(--transition-fast);">
-                ${ICONS.trash}
-              </button>
-              <span style="font-size: 1.35rem; font-weight: 800; margin-left: 0.25rem;">${acc.logo}</span>
-            </div>
-          </div>
-          <div>
-            <span style="font-size: 0.68rem; opacity: 0.85;">Saldo Disponível</span>
-            <div style="font-size: 1.75rem; font-weight: 800; letter-spacing: -0.5px;">${formatCurrency(acc.balance)}</div>
-          </div>
-          <div style="border-top: 1px solid rgba(255,255,255,0.15); padding-top: 0.5rem; font-size: 0.72rem; display: flex; justify-content: space-between; opacity: 0.8;">
-            <span>${acc.agency}</span>
-            <span>${acc.accountNumber}</span>
-          </div>
-        </div>
-      `;
-    });
-
-    container.innerHTML = accountsHTML;
-
-    // Adicionar eventos para excluir conta
-    container.querySelectorAll(".delete-account-btn").forEach(btn => {
-      btn.addEventListener("click", async (e) => {
-        e.stopPropagation();
-        const id = btn.getAttribute("data-id");
-        const account = state.accounts.find(a => a.id === id);
-        const accountName = account ? account.name : "esta conta";
-
-        if (await window.customConfirm(`Tem certeza que deseja excluir a conta "${accountName}"?`)) {
-          const card = document.getElementById(`acc-card-${id}`);
-          if (card) {
-            card.style.opacity = "0";
-            card.style.transform = "scale(0.9) translateY(10px)";
-            setTimeout(() => {
-              state.accounts = state.accounts.filter(a => a.id !== id);
-              saveState();
-              updateAllDashboard();
-            }, 300);
-          } else {
-            state.accounts = state.accounts.filter(a => a.id !== id);
-            saveState();
-            updateAllDashboard();
-          }
-        }
-      });
-    });
-
-    // Adicionar eventos para editar conta
-    container.querySelectorAll(".edit-account-btn").forEach(btn => {
-      btn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        const id = btn.getAttribute("data-id");
-        const account = state.accounts.find(a => a.id === id);
-        if (account) {
-          document.getElementById("acc-id").value = account.id;
-          document.getElementById("acc-name").value = account.name;
-          document.getElementById("acc-type").value = account.type;
-          document.getElementById("acc-logo").value = account.logo;
-          document.getElementById("acc-balance").value = account.balance;
-          document.getElementById("acc-agency").value = account.agency;
-          document.getElementById("acc-number").value = account.accountNumber;
-          document.getElementById("acc-color").value = account.color;
-
-          document.getElementById("modal-conta-title").innerText = "Editar Conta Bancária";
-
-          const modal = document.getElementById("modal-conta-dialog");
-          if (modal) modal.showModal();
-        }
-      });
-    });
+    // Desativado: aba de contas bancarias foi removida do sistema
   }
 
   // ==========================================================================
@@ -2836,11 +2742,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const closeReceita = document.getElementById("close-modal-receita");
   const cancelReceita = document.getElementById("btn-cancelar-receita");
 
-  // Elementos do Modal de Conta
-  const modalConta = document.getElementById("modal-conta-dialog");
-  const btnNovaConta = document.getElementById("btn-nova-conta");
-  const closeConta = document.getElementById("close-modal-conta");
-  const cancelConta = document.getElementById("btn-cancelar-conta");
+
 
   // Elementos do Modal de Recorrente
   const modalRecorrente = document.getElementById("modal-recorrente-dialog");
@@ -2912,7 +2814,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setupModal(btnNovaOS, modalOS, closeOS, cancelOS, "form-nova-os");
   setupModal(btnNovoCartao, modalCartao, closeCartao, cancelCartao, "form-novo-cartao");
   setupModal(btnNovaReceita, modalReceita, closeReceita, cancelReceita, "form-nova-receita");
-  setupModal(btnNovaConta, modalConta, closeConta, cancelConta, "form-nova-conta");
+
   setupModal(btnNovoRecorrente, modalRecorrente, closeRecorrente, cancelRecorrente, "form-novo-recorrente");
   setupModal(btnNovoObjetivo, modalMeta, closeMeta, cancelMeta, "form-nova-meta");
 
@@ -3321,69 +3223,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // 5. Cadastrar/Editar Conta Bancária
-  const formConta = document.getElementById("form-nova-conta");
-  if (formConta) {
-    formConta.addEventListener("submit", (e) => {
-      e.preventDefault();
 
-      const id = document.getElementById("acc-id").value;
-      if (!id && state.tier !== "premium" && state.accounts.length >= 1) {
-        showUpgradeModal("Limite do Plano Gratuito atingido! No plano gratuito você pode cadastrar apenas 1 conta bancária.");
-        return;
-      }
-
-      const name = document.getElementById("acc-name").value;
-      const type = document.getElementById("acc-type").value;
-      const logo = document.getElementById("acc-logo").value;
-      const balance = parseFloat(document.getElementById("acc-balance").value);
-      const agency = document.getElementById("acc-agency").value;
-      const accountNumber = document.getElementById("acc-number").value;
-      const color = document.getElementById("acc-color").value;
-
-      // Mapear sombras baseadas na cor/gradiente para ficar com efeito premium
-      let shadow = "rgba(0, 0, 0, 0.15)";
-      if (color.includes("#830ad1")) shadow = "rgba(131, 10, 209, 0.2)";
-      else if (color.includes("#ec8b16")) shadow = "rgba(236, 139, 22, 0.25)";
-      else if (color.includes("#0d9488")) shadow = "rgba(13, 148, 136, 0.2)";
-      else if (color.includes("#3b82f6")) shadow = "rgba(59, 130, 246, 0.2)";
-      else if (color.includes("#334155")) shadow = "rgba(51, 65, 85, 0.2)";
-      else if (color.includes("#f43f5e")) shadow = "rgba(244, 63, 94, 0.2)";
-
-      if (id) {
-        const acc = state.accounts.find(a => a.id === id);
-        if (acc) {
-          acc.name = name;
-          acc.type = type;
-          acc.logo = logo;
-          acc.balance = balance;
-          acc.agency = agency;
-          acc.accountNumber = accountNumber;
-          acc.color = color;
-          acc.shadow = shadow;
-        }
-      } else {
-        const newAccount = {
-          id: "acc-" + Date.now(),
-          name,
-          type,
-          logo,
-          balance,
-          agency,
-          accountNumber,
-          color,
-          shadow
-        };
-        state.accounts.push(newAccount);
-      }
-
-      saveState();
-      updateAllDashboard();
-
-      formConta.reset();
-      modalConta.close();
-    });
-  }
 
   // 6. Cadastrar/Editar Despesa Recorrente
   const formRecorrente = document.getElementById("form-novo-recorrente");
