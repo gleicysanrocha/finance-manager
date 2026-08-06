@@ -582,7 +582,11 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     });
 
-    return [...realExpenses, ...virtualRecurring];
+    return [...realExpenses, ...virtualRecurring].map(e => ({
+      ...e,
+      // Se a despesa estiver paga e houver um valor pago personalizado, usá-lo como valor real nas somas
+      value: (e.status === "Pagas" && e.paidValue !== undefined) ? e.paidValue : e.value
+    }));
   }
 
   // Renderiza o relatório de despesas por categoria de forma dinâmica
@@ -2013,7 +2017,11 @@ document.addEventListener("DOMContentLoaded", () => {
             <td>
               <span class="badge-status ${statusClass}">${statusLabel}</span>
             </td>
-            <td class="text-danger" style="font-weight: 700;">${formatCurrency(e.value)}</td>
+            <td class="text-danger" style="font-weight: 700;">
+              ${(e.status === "Pagas" && e.paidValue !== undefined && e.paidValue !== e.value) 
+                ? `<span style="text-decoration: line-through; opacity: 0.5; font-size: 0.8rem; display: block; font-weight: normal;">${formatCurrency(e.value)}</span>` + formatCurrency(e.paidValue) 
+                : formatCurrency(e.value)}
+            </td>
             <td class="text-right">
               <div class="row-actions">
                 <button class="table-action-btn toggle-pay" data-id="${e.id}" title="Alternar Pago/Pendente">
@@ -2286,13 +2294,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
             const payDateGroup = document.getElementById("group-exp-pay-date");
             const payDateInput = document.getElementById("exp-pay-date");
-
+            const paidValGroup = document.getElementById("group-exp-paid-val");
+            const paidValInput = document.getElementById("exp-paid-val");
+ 
             if (exp.status === "Pagas") {
               if (payDateGroup) payDateGroup.style.display = "flex";
               if (payDateInput) payDateInput.value = exp.paymentDate || exp.date;
+              if (paidValGroup) paidValGroup.style.display = "flex";
+              if (paidValInput) paidValInput.value = exp.paidValue !== undefined ? exp.paidValue : exp.value;
             } else {
               if (payDateGroup) payDateGroup.style.display = "none";
               if (payDateInput) payDateInput.value = "";
+              if (paidValGroup) paidValGroup.style.display = "none";
+              if (paidValInput) paidValInput.value = "";
             }
 
             document.getElementById("modal-despesa-title").innerText = "Editar Despesa";
@@ -3027,8 +3041,12 @@ document.addEventListener("DOMContentLoaded", () => {
       document.getElementById("exp-id").value = "";
       const payDateGroup = document.getElementById("group-exp-pay-date");
       const payDateInput = document.getElementById("exp-pay-date");
+      const paidValGroup = document.getElementById("group-exp-paid-val");
+      const paidValInput = document.getElementById("exp-paid-val");
       if (payDateGroup) payDateGroup.style.display = "none";
       if (payDateInput) payDateInput.value = "";
+      if (paidValGroup) paidValGroup.style.display = "none";
+      if (paidValInput) paidValInput.value = "";
     });
   }
 
@@ -3036,10 +3054,13 @@ document.addEventListener("DOMContentLoaded", () => {
   const expStatusSelect = document.getElementById("exp-status");
   const expPayDateGroup = document.getElementById("group-exp-pay-date");
   const expPayDateInput = document.getElementById("exp-pay-date");
+  const expPaidValGroup = document.getElementById("group-exp-paid-val");
+  const expPaidValInput = document.getElementById("exp-paid-val");
   if (expStatusSelect && expPayDateGroup) {
     expStatusSelect.addEventListener("change", () => {
       if (expStatusSelect.value === "Pagas") {
         expPayDateGroup.style.display = "flex";
+        if (expPaidValGroup) expPaidValGroup.style.display = "flex";
         if (!expPayDateInput.value) {
           const today = new Date();
           const yyyy = today.getFullYear();
@@ -3047,8 +3068,13 @@ document.addEventListener("DOMContentLoaded", () => {
           const dd = String(today.getDate()).padStart(2, "0");
           expPayDateInput.value = `${yyyy}-${mm}-${dd}`;
         }
+        if (expPaidValInput && !expPaidValInput.value) {
+          const originalVal = document.getElementById("exp-val").value;
+          expPaidValInput.value = originalVal;
+        }
       } else {
         expPayDateGroup.style.display = "none";
+        if (expPaidValGroup) expPaidValGroup.style.display = "none";
       }
     });
   }
@@ -3125,6 +3151,9 @@ document.addEventListener("DOMContentLoaded", () => {
       const category = document.getElementById("exp-category").value;
       const status = document.getElementById("exp-status").value;
       const paymentDate = status === "Pagas" ? document.getElementById("exp-pay-date").value : "";
+      
+      const rawPaidVal = document.getElementById("exp-paid-val").value;
+      const paidValue = (status === "Pagas" && rawPaidVal !== "") ? parseFloat(rawPaidVal) : undefined;
 
       if (id) {
         const exp = state.expenses.find(e => e.id === id);
@@ -3136,6 +3165,7 @@ document.addEventListener("DOMContentLoaded", () => {
           exp.category = category;
           exp.status = status;
           exp.paymentDate = paymentDate;
+          exp.paidValue = paidValue;
         }
       } else {
         const newExpense = {
@@ -3146,7 +3176,8 @@ document.addEventListener("DOMContentLoaded", () => {
           cardId,
           category,
           status,
-          paymentDate
+          paymentDate,
+          paidValue
         };
         state.expenses.push(newExpense);
       }
