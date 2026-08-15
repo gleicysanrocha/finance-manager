@@ -1,4 +1,4 @@
-// ===========================================================================
+﻿// ===========================================================================
 // CONFIGURAÇÃO DO FIREBASE E NUVEM
 // ===========================================================================
 
@@ -241,6 +241,10 @@ async function initFirebase() {
     return false;
   }
 
+  // Atualizar chaves globais com base na configuração carregada
+  if (config.apiKey) FIREBASE_API_KEY = config.apiKey;
+  if (config.projectId) FIREBASE_PROJECT_ID = config.projectId;
+
   try {
     if (!firebase.apps.length) {
       firebase.initializeApp(config);
@@ -254,14 +258,23 @@ async function initFirebase() {
     if (currentUser && currentUser.uid) {
       window.currentUser = currentUser;
       window.isCloudEnabled = true;
-      updateSyncIndicator("online");
+      updateSyncIndicator("syncing");
       if (window.updateCloudUI) window.updateCloudUI(true, currentUser.email);
       const dropdownLogoutBtn = document.getElementById("dropdown-logout-btn");
       if (dropdownLogoutBtn) {
-        dropdownLogoutBtn.innerHTML = `<span>🚪</span> Sair da Conta`;
+        dropdownLogoutBtn.innerHTML = `<span>🔥</span> Sair da Conta`;
       }
       if (window.updateAdminUI) window.updateAdminUI();
-      await loadState();
+      // Renovar token antes de carregar dados para garantir sincronização com a nuvem
+      if (currentUser.refreshToken && window.firebaseRefreshToken) {
+        try {
+          console.log("initFirebase: Renovando token para garantir sincronização...");
+          await window.firebaseRefreshToken();
+        } catch (tokenErr) {
+          console.warn("Erro ao renovar token no initFirebase:", tokenErr);
+        }
+      }
+      // loadState será chamado pelo app.js no .then() do initFirebase
       return true;
     }
 
@@ -288,7 +301,7 @@ async function initFirebase() {
         if (window.updateAdminUI) window.updateAdminUI();
         window.currentUser = currentUser;
         window.isCloudEnabled = true;
-        await loadState();
+        if (window.loadState) await window.loadState();
       } else {
         // onAuthStateChanged retornou null — manter usuário do localStorage se existir
         if (currentUser && currentUser.uid) {
@@ -303,7 +316,7 @@ async function initFirebase() {
         if (dropdownLogoutBtn) {
           dropdownLogoutBtn.innerHTML = `<span>🔑</span> Entrar / Conectar Conta`;
         }
-        await loadState();
+        if (window.loadState) await window.loadState();
       }
     });
 

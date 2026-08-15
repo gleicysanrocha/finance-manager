@@ -1,4 +1,4 @@
-// ===========================================================================
+﻿// ===========================================================================
 // LÓGICA CENTRAL - GERENCIADOR FINANCEIRO PREMIUM
 // ===========================================================================
 
@@ -212,6 +212,15 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   async function loadState() {
+    // Sincronizar variáveis locais com o escopo global antes de ler do localStorage
+    if (window.currentUser) {
+      currentUser = window.currentUser;
+      isCloudEnabled = true;
+    } else {
+      currentUser = null;
+      isCloudEnabled = false;
+    }
+
     const storedTheme = getLocalValue("theme");
     if (storedTheme) {
       state.theme = storedTheme;
@@ -264,18 +273,24 @@ document.addEventListener("DOMContentLoaded", () => {
     updateTierUI();
     updateProfilePhotoUI();
 
-    // Sincronizar variáveis locais com o escopo global (definido no index.html/firebase-config)
-    if (window.currentUser) {
+    // Sincronizar com window.currentUser caso loadState seja chamado antes do Firebase inicializar
+    if (window.currentUser && window.currentUser.uid && !currentUser) {
       currentUser = window.currentUser;
       isCloudEnabled = true;
     }
 
-    if (isCloudEnabled && currentUser) {
+    if ((isCloudEnabled || (window.currentUser && window.currentUser.uid)) && currentUser) {
       updateSyncIndicator("syncing");
       try {
         let docData = null;
 
         // Tentar via Firestore REST API primeiro (funciona independente de domínio autorizado)
+        // Renovar token se necessário antes de buscar dados
+        if (!currentUser.idToken && currentUser.refreshToken && window.firebaseRefreshToken) {
+          console.log("loadState: Renovando token antes de buscar da nuvem...");
+          await window.firebaseRefreshToken();
+          currentUser = window.currentUser || currentUser;
+        }
         if (currentUser.idToken && window.firestoreGet) {
           try {
             const restDoc = await window.firestoreGet("financial_data/" + currentUser.uid);
@@ -318,11 +333,30 @@ document.addEventListener("DOMContentLoaded", () => {
             document.body.className = `theme-${state.theme}`;
             updateThemeIcon();
           }
+
+          // Persistir dados carregados da nuvem no localStorage local
+          localStorage.setItem(getLocalStorageKey("cards"), JSON.stringify(state.cards));
+          localStorage.setItem(getLocalStorageKey("expenses"), JSON.stringify(state.expenses));
+          localStorage.setItem(getLocalStorageKey("revenues"), JSON.stringify(state.revenues));
+          localStorage.setItem(getLocalStorageKey("orders"), JSON.stringify(state.orders));
+          localStorage.setItem(getLocalStorageKey("accounts"), JSON.stringify(state.accounts));
+          localStorage.setItem(getLocalStorageKey("recurring"), JSON.stringify(state.recurring));
+          localStorage.setItem(getLocalStorageKey("goals"), JSON.stringify(state.goals));
+          localStorage.setItem(getLocalStorageKey("projects"), JSON.stringify(state.projects || []));
+          localStorage.setItem(getLocalStorageKey("username"), state.userName);
+          localStorage.setItem(getLocalStorageKey("tagline"), state.tagline);
+          localStorage.setItem(getLocalStorageKey("theme"), state.theme);
+          localStorage.setItem(getLocalStorageKey("profilePhoto"), state.profilePhoto || "");
+
           updateProfileUI();
           updateTierUI();
           updateProfilePhotoUI();
           updateSyncIndicator("online");
+          updateAllDashboard(); // Re-renderizar dashboard com dados da nuvem
         } else {
+          // Nenhum dado encontrado na nuvem - apenas criar documento inicial
+          // NÃO sobrescrever dados da nuvem com dados locais (evita perda de dados)
+          console.log("Criando documento inicial na nuvem para o usuário...");
           await saveState();
           updateSyncIndicator("online");
         }
