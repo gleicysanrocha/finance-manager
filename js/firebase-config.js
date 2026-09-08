@@ -289,7 +289,8 @@ async function initFirebase() {
           uid: user.uid,
           email: user.email,
           displayName: user.displayName || user.email.split("@")[0],
-          idToken: await user.getIdToken()
+          idToken: await user.getIdToken(),
+          refreshToken: user.refreshToken || ""
         };
         localStorage.setItem("finance_manager_active_user", JSON.stringify(currentUser));
         updateSyncIndicator("online");
