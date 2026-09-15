@@ -22,7 +22,9 @@ document.addEventListener("DOMContentLoaded", () => {
     currentTab: "despesas",
     searchQuery: "",
     selectedCardId: "card-1",
-    tier: "premium"
+    tier: "premium",
+    // Faturas cadastradas manualmente por cartão (key = cardId, value = valor da fatura)
+    cardInvoices: {}
   };
 
   // Frases financeiras rotativas para o Tagline
@@ -251,6 +253,7 @@ document.addEventListener("DOMContentLoaded", () => {
       state.recurring = storedRecurring ? JSON.parse(storedRecurring) : [];
       state.goals = storedGoals ? JSON.parse(storedGoals) : [];
       state.projects = storedProjects ? JSON.parse(storedProjects) : [];
+      state.cardInvoices = storedCardInvoices ? JSON.parse(storedCardInvoices) : {};
     } else {
       // Sem dados gravados: manter campos limpos sem forçar dados demonstrativos mockados
       state.cards = [];
@@ -261,6 +264,7 @@ document.addEventListener("DOMContentLoaded", () => {
       state.recurring = [];
       state.goals = [];
       state.projects = [];
+      state.cardInvoices = {};
     }
     
     state.userName = storedUserName || currentUser?.displayName || (currentUser ? "Usuário" : "Usuário");
@@ -268,6 +272,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const storedProfilePhoto = getLocalValue("profilePhoto");
     state.profilePhoto = storedProfilePhoto || "";
+
+    const storedCardInvoices = getLocalValue("cardInvoices");
 
     updateProfileUI();
     updateTierUI();
@@ -322,6 +328,7 @@ document.addEventListener("DOMContentLoaded", () => {
           state.recurring = cloudState.recurring || docData.recurring || state.recurring || [];
           state.goals = cloudState.goals || docData.goals || state.goals || [];
           state.projects = cloudState.projects || docData.projects || state.projects || [];
+          state.cardInvoices = cloudState.cardInvoices || docData.cardInvoices || state.cardInvoices || {};
           state.userName = cloudState.userName || docData.userName || currentUser.displayName || state.userName || "Usuário";
           state.tagline = cloudState.tagline || docData.tagline || state.tagline || DEFAULT_TAGLINE;
           state.profilePhoto = cloudState.profilePhoto || docData.profilePhoto || state.profilePhoto || "";
@@ -343,6 +350,7 @@ document.addEventListener("DOMContentLoaded", () => {
           localStorage.setItem(getLocalStorageKey("recurring"), JSON.stringify(state.recurring));
           localStorage.setItem(getLocalStorageKey("goals"), JSON.stringify(state.goals));
           localStorage.setItem(getLocalStorageKey("projects"), JSON.stringify(state.projects || []));
+          localStorage.setItem(getLocalStorageKey("cardInvoices"), JSON.stringify(state.cardInvoices || {}));
           localStorage.setItem(getLocalStorageKey("username"), state.userName);
           localStorage.setItem(getLocalStorageKey("tagline"), state.tagline);
           localStorage.setItem(getLocalStorageKey("theme"), state.theme);
@@ -423,6 +431,7 @@ document.addEventListener("DOMContentLoaded", () => {
     localStorage.setItem(getLocalStorageKey("theme"), state.theme);
     localStorage.setItem(getLocalStorageKey("tier"), state.tier);
     localStorage.setItem(getLocalStorageKey("profilePhoto"), state.profilePhoto || "");
+    localStorage.setItem(getLocalStorageKey("cardInvoices"), JSON.stringify(state.cardInvoices || {}));
 
     updateTierUI();
 
@@ -442,7 +451,8 @@ document.addEventListener("DOMContentLoaded", () => {
           tagline: state.tagline,
           theme: state.theme,
           tier: state.tier,
-          profilePhoto: state.profilePhoto || ""
+          profilePhoto: state.profilePhoto || "",
+          cardInvoices: state.cardInvoices || {}
         };
 
         let saved = false;
@@ -487,6 +497,7 @@ document.addEventListener("DOMContentLoaded", () => {
     state.userName = name;
     state.tagline = DEFAULT_TAGLINE;
     state.selectedCardId = "";
+    state.cardInvoices = {};
     updateProfileUI();
   }
 
@@ -623,6 +634,46 @@ document.addEventListener("DOMContentLoaded", () => {
     }));
   }
 
+  // Valor manual da fatura cadastrada para um cartão (null quando não há cadastro)
+  function getCardManualInvoice(cardId) {
+    const v = state.cardInvoices && state.cardInvoices[cardId];
+    if (v === undefined || v === null || v === "") return null;
+    return Number(v) || 0;
+  }
+
+  // Despesas do mês/ano com as faturas manuais aplicadas:
+  // as despesas de um cartão com fatura manual são substituídas pelo valor da fatura,
+  // evitando dupla contagem da mesma despesa na lista e na fatura.
+  function getMonthlyExpensesWithInvoices(month, year) {
+    const monthExpenses = getMonthlyExpenses(month, year);
+    const cardBuckets = {};
+    const result = [];
+
+    monthExpenses.forEach(e => {
+      if (!e.cardId) { result.push(e); return; }
+      if (!cardBuckets[e.cardId]) cardBuckets[e.cardId] = [];
+      cardBuckets[e.cardId].push(e);
+    });
+
+    Object.keys(cardBuckets).forEach(cardId => {
+      const manual = getCardManualInvoice(cardId);
+      const value = manual !== null ? manual : cardBuckets[cardId].reduce((s, e) => s + e.value, 0);
+      if (value > 0) {
+        result.push({
+          id: `invoice-card-${cardId}`,
+          description: "Fatura do cartão",
+          value,
+          date: `${year}-${String(month + 1).padStart(2, "0")}-01`,
+          cardId,
+          status: "Comprometido",
+          isInvoice: true
+        });
+      }
+    });
+
+    return result;
+  }
+
   // Renderiza o relatório de despesas por categoria de forma dinâmica
   function materializeVirtualRecurringExpense(id, status) {
     const recItem = state.recurring.find(r => id.includes(`virtual-rec-${r.id}-`));
@@ -754,12 +805,11 @@ document.addEventListener("DOMContentLoaded", () => {
       });
       const totalRevenues = monthRevenues.reduce((sum, r) => sum + r.value, 0);
 
-      // Despesas do mês m e ano selecionado
-      const monthExpenses = getMonthlyExpenses(m, selectedReportYear);
-      const totalExpenses = monthExpenses.reduce((sum, e) => sum + e.value, 0);
+      // Despesas do mês m e ano selecionado (com faturas manuais aplicadas para evitar dupla contagem)
+      const totalExpenses = getMonthlyExpensesWithInvoices(m, selectedReportYear).reduce((sum, e) => sum + e.value, 0);
 
       const netFlow = totalRevenues - totalExpenses;
-      
+
       annualIncome += totalRevenues;
       annualExpense += totalExpenses;
 
@@ -939,8 +989,7 @@ document.addEventListener("DOMContentLoaded", () => {
       });
       const totalRevenues = monthRevenues.reduce((sum, r) => sum + r.value, 0);
 
-      const monthExpenses = getMonthlyExpenses(m, selectedReportYear);
-      const totalExpenses = monthExpenses.reduce((sum, e) => sum + e.value, 0);
+      const totalExpenses = getMonthlyExpensesWithInvoices(m, selectedReportYear).reduce((sum, e) => sum + e.value, 0);
       const netFlow = totalRevenues - totalExpenses;
 
       csvContent += `${monthNames[m]} / ${selectedReportYear};${totalRevenues.toFixed(2).replace(".", ",")};${totalExpenses.toFixed(2).replace(".", ",")};${netFlow.toFixed(2).replace(".", ",")}\r\n`;
@@ -962,16 +1011,19 @@ document.addEventListener("DOMContentLoaded", () => {
       return d.getMonth() === state.selectedMonth && d.getFullYear() === state.selectedYear;
     });
 
+    // Despesa conta separadamente quando não é de cartão, ou quando o cartão não tem fatura manual
+    const countsSeparately = e => !e.cardId || getCardManualInvoice(e.cardId) === null;
+
     const totalRevenues = monthRevenues.reduce((sum, r) => sum + r.value, 0);
-    const totalExpenses = monthExpenses.reduce((sum, e) => sum + e.value, 0);
+    const totalExpenses = getMonthlyExpensesWithInvoices(state.selectedMonth, state.selectedYear).reduce((sum, e) => sum + e.value, 0);
     const pendingExpenses = monthExpenses
-      .filter(e => e.status === "Pendentes" || e.status === "Comprometido")
+      .filter(e => countsSeparately(e) && (e.status === "Pendentes" || e.status === "Comprometido"))
       .reduce((sum, e) => sum + e.value, 0);
     const pendingRevenues = monthRevenues
       .filter(r => r.category === "Pendente")
       .reduce((sum, r) => sum + r.value, 0);
     const paidExpenses = monthExpenses
-      .filter(e => e.status === "Pagas")
+      .filter(e => countsSeparately(e) && e.status === "Pagas")
       .reduce((sum, e) => sum + e.value, 0);
 
     const netFlow = totalRevenues - totalExpenses;
@@ -1099,18 +1151,34 @@ document.addEventListener("DOMContentLoaded", () => {
       return d.getMonth() === month && d.getFullYear() === year;
     });
 
-    // 1. Total Despesas (inclui pagas, pendentes e comprometidas)
-    const totalExpenses = currentMonthExpenses.reduce((sum, e) => sum + e.value, 0);
+    // Separa as despesas do mês entre normais (sem cartão) e vinculadas a cartões
+    const nonCardExpenses = currentMonthExpenses.filter(e => !e.cardId);
+    const cardExpensesByCard = {};
+    currentMonthExpenses.forEach(e => {
+      if (!e.cardId) return;
+      if (!cardExpensesByCard[e.cardId]) cardExpensesByCard[e.cardId] = [];
+      cardExpensesByCard[e.cardId].push(e);
+    });
 
-    // 2. Pagas (Líquido)
-    const paidExpenses = currentMonthExpenses
-      .filter(e => e.status === "Pagas")
-      .reduce((sum, e) => sum + e.value, 0);
+    // 1. Total Despesas: despesas normais + contribuição de cada cartão.
+    //    Cartão com fatura manual usa o valor da fatura (não duplica as despesas do cartão).
+    const totalExpenses = getMonthlyExpensesWithInvoices(month, year).reduce((sum, e) => sum + e.value, 0);
 
-    // 3. Pendentes
-    const pendingExpenses = currentMonthExpenses
-      .filter(e => e.status === "Pendentes")
-      .reduce((sum, e) => sum + e.value, 0);
+    // 2. Pagas (Líquido): despesas normais pagas + despesas de cartões SEM fatura manual
+    const paidExpenses =
+      nonCardExpenses.filter(e => e.status === "Pagas").reduce((sum, e) => sum + e.value, 0) +
+      state.cards.reduce((sum, c) => {
+        if (getCardManualInvoice(c.id) !== null) return sum;
+        return sum + (cardExpensesByCard[c.id] || []).filter(e => e.status === "Pagas").reduce((s, e) => s + e.value, 0);
+      }, 0);
+
+    // 3. Pendentes: despesas normais pendentes + despesas de cartões SEM fatura manual
+    const pendingExpenses =
+      nonCardExpenses.filter(e => e.status === "Pendentes").reduce((sum, e) => sum + e.value, 0) +
+      state.cards.reduce((sum, c) => {
+        if (getCardManualInvoice(c.id) !== null) return sum;
+        return sum + (cardExpensesByCard[c.id] || []).filter(e => e.status === "Pendentes").reduce((s, e) => s + e.value, 0);
+      }, 0);
 
     // 4. Receitas totais e contagens
     const totalRevenues = currentMonthRevenues.reduce((sum, r) => sum + r.value, 0);
@@ -1121,18 +1189,20 @@ document.addEventListener("DOMContentLoaded", () => {
     const activeCard = state.cards.find(c => c.id === state.selectedCardId) || state.cards[0];
     const totalLimit = activeCard ? activeCard.limit : 0;
 
-    // Calcular valores específicos da fatura do cartão ativo
+    // 5.1. Fatura do cartão ativo: valor manual quando cadastrado, senão despesas "Pagas" do cartão
     const activeCardExpenses = currentMonthExpenses.filter(e => {
       return e.cardId === (activeCard ? activeCard.id : "");
     });
 
-    const activeCardFatura = activeCardExpenses
-      .filter(e => e.status === "Pagas")
-      .reduce((sum, e) => sum + e.value, 0);
+    const activeCardManualInvoice = activeCard ? getCardManualInvoice(activeCard.id) : null;
 
-    const activeCardComprometido = activeCardExpenses
-      .filter(e => e.status === "Comprometido")
-      .reduce((sum, e) => sum + e.value, 0);
+    const activeCardFatura = activeCardManualInvoice !== null
+      ? activeCardManualInvoice
+      : activeCardExpenses.filter(e => e.status === "Pagas").reduce((sum, e) => sum + e.value, 0);
+
+    const activeCardComprometido = activeCardManualInvoice !== null
+      ? 0 // já está incluída no valor manual da fatura
+      : activeCardExpenses.filter(e => e.status === "Comprometido").reduce((sum, e) => sum + e.value, 0);
 
     const activeCardDisp = totalLimit - activeCardFatura - activeCardComprometido;
 
@@ -1188,6 +1258,14 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("cards-count").innerText = state.cards.length.toString();
 
     const { activeCard, totalLimit, activeCardFatura, activeCardComprometido, activeCardDisp } = cardMetrics;
+
+    // Valor manual da fatura cadastrada para o cartão ativo (null = não cadastrado)
+    const activeCardManualInvoice = (() => {
+      if (!activeCard) return null;
+      const v = state.cardInvoices && state.cardInvoices[activeCard.id];
+      if (v === undefined || v === null || v === "") return null;
+      return Number(v) || 0;
+    })();
 
     if (!activeCard) return;
 
@@ -1280,6 +1358,22 @@ document.addEventListener("DOMContentLoaded", () => {
           </div>
         </div>
       </div>
+
+      <!-- Cadastro manual do valor da fatura (substitui a soma das despesas vinculadas ao cartão) -->
+      <div class="invoice-manual-box" style="margin-top: 0.9rem; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 12px; padding: 0.85rem 0.9rem;">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.5rem;">
+          <span style="font-size: 0.76rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;">💳 Valor da fatura</span>
+          <span id="manual-invoice-status" style="font-size: 0.72rem; color: #16a34a; display: none;"></span>
+        </div>
+        <div style="display: flex; gap: 0.45rem; align-items: center;">
+          <input id="manual-invoice-input" type="number" step="0.01" min="0" placeholder="Ex.: 250,00"
+            value="${activeCardManualInvoice === null ? "" : activeCardManualInvoice}"
+            style="flex: 1; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 8px; padding: 0.5rem 0.7rem; font-family: var(--font-sans); font-size: 0.85rem; color: var(--text-primary, #1f2937); min-width: 0;">
+          <button id="save-manual-invoice-btn" style="background: ${activeCard.color}; color: #fff; border: none; border-radius: 8px; padding: 0.5rem 0.75rem; font-family: var(--font-sans); font-size: 0.78rem; font-weight: 700; cursor: pointer; white-space: nowrap; transition: var(--transition-fast);">Salvar fatura</button>
+          <button id="clear-manual-invoice-btn" title="Limpar fatura manual" ${activeCardManualInvoice === null ? 'style="display:none;"' : 'style="background: transparent; color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 8px; width: 34px; height: 34px; cursor: pointer; font-size: 0.85rem; line-height: 1;"'}>✕</button>
+        </div>
+        <small style="display: block; margin-top: 0.45rem; line-height: 1.35; color: var(--text-muted); font-size: 0.72rem;">As despesas vinculadas a este cartão entram pelo valor acima, evitando dupla contagem. Deixe vazio para somar automaticamente as despesas do cartão.</small>
+      </div>
     `;
 
     container.innerHTML = cardHTML;
@@ -1328,6 +1422,11 @@ document.addEventListener("DOMContentLoaded", () => {
           // Excluir do array
           state.cards = state.cards.filter(c => c.id !== cardId);
 
+          // Remover fatura manual cadastrada para o cartão excluído
+          if (state.cardInvoices) {
+            delete state.cardInvoices[cardId];
+          }
+
           // Se excluiu o ativo, mudar o foco
           if (state.selectedCardId === cardId) {
             state.selectedCardId = state.cards.length > 0 ? state.cards[0].id : "";
@@ -1347,6 +1446,53 @@ document.addEventListener("DOMContentLoaded", () => {
         updateAllDashboard();
       });
     });
+
+    // ── Cadastro manual do valor da fatura ──
+    const manualInvoiceInput = document.getElementById("manual-invoice-input");
+    const saveInvoiceBtn = document.getElementById("save-manual-invoice-btn");
+    const clearInvoiceBtn = document.getElementById("clear-manual-invoice-btn");
+    const invoiceStatus = document.getElementById("manual-invoice-status");
+
+    const flashInvoiceSaved = () => {
+      if (!invoiceStatus) return;
+      invoiceStatus.innerText = "Fatura salva ✔";
+      invoiceStatus.style.display = "inline";
+      clearTimeout(invoiceStatus._saveTimer);
+      invoiceStatus._saveTimer = setTimeout(() => { if (invoiceStatus) invoiceStatus.style.display = "none"; }, 2200);
+    };
+
+    const saveManualInvoice = () => {
+      const raw = manualInvoiceInput ? manualInvoiceInput.value.trim() : "";
+      if (raw === "") {
+        // Entrada vazia = sem fatura manual (volta a somar automaticamente as despesas do cartão)
+        delete state.cardInvoices[activeCard.id];
+      } else {
+        const parsed = parseFloat(raw.replace(",", "."));
+        if (isNaN(parsed) || parsed < 0) {
+          if (manualInvoiceInput) manualInvoiceInput.value = "";
+          return;
+        }
+        state.cardInvoices[activeCard.id] = parsed;
+      }
+      saveState();
+      flashInvoiceSaved();
+      updateAllDashboard();
+    };
+
+    if (saveInvoiceBtn) saveInvoiceBtn.addEventListener("click", saveManualInvoice);
+    if (manualInvoiceInput) {
+      manualInvoiceInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") saveManualInvoice();
+      });
+    }
+    if (clearInvoiceBtn) {
+      clearInvoiceBtn.addEventListener("click", () => {
+        if (manualInvoiceInput) manualInvoiceInput.value = "";
+        delete state.cardInvoices[activeCard.id];
+        saveState();
+        updateAllDashboard();
+      });
+    }
   }
 
   // ==========================================================================
