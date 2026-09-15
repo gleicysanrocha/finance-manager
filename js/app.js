@@ -548,6 +548,21 @@ document.addEventListener("DOMContentLoaded", () => {
     return result;
   }
 
+  // Valor de cada parcela de uma compra parcelada (divisão arredondada em centavos)
+  function parcelValue(expense) {
+    return Math.round((expense.value / expense.installments) * 100) / 100;
+  }
+
+  // Gera um id único para despesa (evita colisão quando duas são criadas no mesmo milissegundo)
+  let expenseIdCounter = 0;
+  function uniqueExpenseId() {
+    let candidate;
+    do {
+      candidate = `exp-${Date.now()}-${++expenseIdCounter}`;
+    } while (state.expenses.some(e => e.id === candidate));
+    return candidate;
+  }
+
   function getRecurringOccurrenceDates(recurringItem, month, year) {
     const start = new Date(recurringItem.date + "T00:00:00");
     if (Number.isNaN(start.getTime())) return [];
@@ -627,10 +642,47 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     });
 
-    return [...realExpenses, ...virtualRecurring].map(e => ({
+    // 3. Processar parcelas de compras parceladas: cada mês exibe (e soma) apenas a sua parcela.
+    // A parcela 1 é a própria despesa base; as demais são linhas virtuais derivadas por mês.
+    const virtualInstallments = [];
+    state.expenses.filter(e => e.installments > 1).forEach(e => {
+      const baseDate = new Date(e.date + "T00:00:00");
+      if (Number.isNaN(baseDate.getTime())) return;
+      const pad = (v) => String(v).padStart(2, "0");
+      const toDateStr = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+      for (let i = 1; i < e.installments; i++) {
+        const occurrence = addMonthsKeepingDay(baseDate, i);
+        if (occurrence.getMonth() !== month || occurrence.getFullYear() !== year) continue;
+
+        const occurrenceDateStr = toDateStr(occurrence);
+        // Se a parcela deste mês já foi materializada (marcada paga/editada), não duplicar
+        const alreadyMaterialized = state.expenses.some(m => {
+          return m.parentInstallmentId === e.id && m.date === occurrenceDateStr;
+        });
+        if (alreadyMaterialized) continue;
+
+        virtualInstallments.push({
+          id: `virtual-inst-${e.id}-${occurrence.getFullYear()}-${occurrence.getMonth() + 1}-${occurrence.getDate()}`,
+          description: e.description,
+          value: parcelValue(e),
+          date: occurrenceDateStr,
+          cardId: e.cardId,
+          category: e.category,
+          status: (e.cardId && e.cardId.startsWith("card-")) ? "Comprometido" : "Pendentes",
+          installmentNo: i + 1,
+          installmentTotal: e.installments,
+          isVirtual: true,
+          parentInstallmentId: e.id
+        });
+      }
+    });
+
+    return [...realExpenses, ...virtualRecurring, ...virtualInstallments].map(e => ({
       ...e,
-      // Se a despesa estiver paga e houver um valor pago personalizado, usá-lo como valor real nas somas
-      value: (e.status === "Pagas" && e.paidValue !== undefined) ? e.paidValue : e.value
+      // Despesa base parcelada: nunca somar o total, apenas o valor da parcela do mês
+      value: (e.status === "Pagas" && e.paidValue !== undefined) ? e.paidValue
+        : (e.installments > 1 ? parcelValue(e) : e.value)
     }));
   }
 
@@ -710,6 +762,56 @@ document.addEventListener("DOMContentLoaded", () => {
       category: recItem.category,
       status: initialStatus,
       parentRecurringId: recItem.id
+    };
+
+    if (initialStatus === "Pagas") {
+      const today = new Date();
+      const yyyy = today.getFullYear();
+      const mm = String(today.getMonth() + 1).padStart(2, "0");
+      const dd = String(today.getDate()).padStart(2, "0");
+      newRealExpense.paymentDate = `${yyyy}-${mm}-${dd}`;
+    }
+
+    state.expenses.push(newRealExpense);
+    return newRealExpense;
+  }
+
+  // Transforma uma parcela virtual (futura) de uma compra parcelada em despesa real,
+  // permitindo marcá-la como paga ou editá-la pontualmente, como nas recorrentes.
+  function materializeVirtualInstallmentExpense(id, status) {
+    const baseExpense = state.expenses.find(e => e.installments > 1 && id.startsWith(`virtual-inst-${e.id}-`));
+    if (!baseExpense) return null;
+
+    const parts = id.split("-");
+    if (parts.length < 4 || !/^\d{4}$/.test(parts[parts.length - 3])) return null;
+
+    const targetYear = parseInt(parts[parts.length - 3]);
+    const targetMonthIndex = parseInt(parts[parts.length - 2]) - 1;
+    const targetDay = String(parseInt(parts[parts.length - 1])).padStart(2, "0");
+    const occurrenceDateStr = `${targetYear}-${String(targetMonthIndex + 1).padStart(2, "0")}-${targetDay}`;
+
+    const existingExpense = state.expenses.find(exp => {
+      return exp.parentInstallmentId === baseExpense.id && exp.date === occurrenceDateStr;
+    });
+    if (existingExpense) return existingExpense;
+
+    const baseDate = new Date(baseExpense.date + "T00:00:00");
+    const occurrenceDate = new Date(occurrenceDateStr + "T00:00:00");
+    const monthDiff = (occurrenceDate.getFullYear() - baseDate.getFullYear()) * 12
+      + (occurrenceDate.getMonth() - baseDate.getMonth());
+    const initialStatus = status || ((baseExpense.cardId && baseExpense.cardId.startsWith("card-")) ? "Comprometido" : "Pendentes");
+
+    const newRealExpense = {
+      id: `inst-instance-${baseExpense.id}-${occurrenceDateStr}`,
+      description: baseExpense.description,
+      value: parcelValue(baseExpense),
+      date: occurrenceDateStr,
+      cardId: baseExpense.cardId,
+      category: baseExpense.category,
+      status: initialStatus,
+      parentInstallmentId: baseExpense.id,
+      installmentNo: monthDiff + 1,
+      installmentTotal: baseExpense.installments
     };
 
     if (initialStatus === "Pagas") {
@@ -2090,9 +2192,16 @@ document.addEventListener("DOMContentLoaded", () => {
           dateHTML += `<div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 500; margin-top: 0.15rem; white-space: nowrap;">Pago em: ${formatDateBR(e.paymentDate)}</div>`;
         }
 
+        // Badge de parcela sob a descrição das compras parceladas
+        const instTotal = e.installmentTotal || e.installments || 0;
+        const instNo = e.installmentNo || 1;
+        const instBadge = instTotal > 1
+          ? `<div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600; margin-top: 0.15rem;">Parcela ${instNo}/${instTotal}</div>`
+          : "";
+
         tbodyHTML += `
           <tr id="row-exp-${e.id}">
-            <td>${e.description}</td>
+            <td>${e.description}${instBadge}</td>
             <td>${dateHTML}</td>
             <td>
               <span class="card-mini-tag" style="background: ${cardColor}; color: ${cardText}; padding: 0.2rem 0.6rem; border-radius: 4px; font-size: 0.72rem; font-weight: 700; border: 1px solid rgba(255,255,255,0.05);">
@@ -2286,6 +2395,27 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
           }
 
+          if (id.startsWith("virtual-inst-")) {
+            const instBase = state.expenses.find(e => e.installments > 1 && id.startsWith(`virtual-inst-${e.id}-`));
+            if (instBase) {
+              if (await window.customConfirm(`Deseja excluir a compra parcelada "${instBase.description}" (${instBase.installments}x) e todas as suas parcelas?`)) {
+                const removeAllInstallments = () => {
+                  state.expenses = state.expenses.filter(x => x.id !== instBase.id && x.parentInstallmentId !== instBase.id);
+                  saveState();
+                  updateAllDashboard();
+                };
+                if (row) {
+                  row.style.opacity = "0";
+                  row.style.transform = "translateX(20px)";
+                  setTimeout(removeAllInstallments, 300);
+                } else {
+                  removeAllInstallments();
+                }
+              }
+            }
+            return;
+          }
+
           const expense = state.expenses.find(exp => exp.id === id);
           if (expense && expense.parentRecurringId) {
             const recItem = state.recurring.find(r => r.id === expense.parentRecurringId);
@@ -2315,6 +2445,58 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
           }
 
+          if (expense && expense.parentInstallmentId) {
+            const instBase = state.expenses.find(b => b.id === expense.parentInstallmentId);
+            const instName = instBase ? instBase.description : "compra parcelada";
+            const removeAllInstallments = () => {
+              state.expenses = state.expenses.filter(x => x.id !== expense.parentInstallmentId && x.parentInstallmentId !== expense.parentInstallmentId);
+              saveState();
+              updateAllDashboard();
+            };
+            const removeThisInstallment = () => {
+              state.expenses = state.expenses.filter(x => x.id !== expense.id);
+              saveState();
+              updateAllDashboard();
+            };
+            if (await window.customConfirm(`Esta despesa é uma parcela de "${instName}".\nDeseja excluir a compra parcelada inteira e todas as suas parcelas? (Se escolher Cancelar, excluirá apenas esta parcela de ${formatDateBR(expense.date)})`)) {
+              if (row) {
+                row.style.opacity = "0";
+                row.style.transform = "translateX(20px)";
+                setTimeout(removeAllInstallments, 300);
+              } else {
+                removeAllInstallments();
+              }
+            } else {
+              if (row) {
+                row.style.opacity = "0";
+                row.style.transform = "translateX(20px)";
+                setTimeout(removeThisInstallment, 300);
+              } else {
+                removeThisInstallment();
+              }
+            }
+            return;
+          }
+
+          if (expense && expense.installments > 1) {
+            // Despesa base de uma compra parcelada: excluir remove todas as parcelas
+            if (await window.customConfirm(`Deseja excluir a compra parcelada "${expense.description}" (${expense.installments}x) e todas as suas parcelas?`)) {
+              const removeAllInstallments = () => {
+                state.expenses = state.expenses.filter(x => x.id !== expense.id && x.parentInstallmentId !== expense.id);
+                saveState();
+                updateAllDashboard();
+              };
+              if (row) {
+                row.style.opacity = "0";
+                row.style.transform = "translateX(20px)";
+                setTimeout(removeAllInstallments, 300);
+              } else {
+                removeAllInstallments();
+              }
+            }
+            return;
+          }
+
           if (row) {
             row.style.opacity = "0";
             row.style.transform = "translateX(20px)";
@@ -2332,10 +2514,13 @@ document.addEventListener("DOMContentLoaded", () => {
         btn.addEventListener("click", () => {
           const id = btn.getAttribute("data-id");
           let expense = state.expenses.find(exp => exp.id === id);
-          
+
           if (!expense && id.startsWith("virtual-rec-")) {
             // Materializar a despesa recorrente virtual para esta data específica
             expense = materializeVirtualRecurringExpense(id, "Pagas");
+          } else if (!expense && id.startsWith("virtual-inst-")) {
+            // Materializar a parcela virtual para esta data específica
+            expense = materializeVirtualInstallmentExpense(id, "Pagas");
           } else if (expense) {
             if (expense.status === "Pagas") {
               expense.status = "Pendentes";
@@ -2362,10 +2547,14 @@ document.addEventListener("DOMContentLoaded", () => {
         btn.addEventListener("click", () => {
           const id = btn.getAttribute("data-id");
           let exp = state.expenses.find(e => e.id === id);
-          
+
           if (!exp && id.startsWith("virtual-rec-")) {
             // Materializar a despesa recorrente virtual para esta data específica
             exp = materializeVirtualRecurringExpense(id);
+            if (exp) saveState();
+          } else if (!exp && id.startsWith("virtual-inst-")) {
+            // Materializar a parcela virtual para esta data específica
+            exp = materializeVirtualInstallmentExpense(id);
             if (exp) saveState();
           }
 
@@ -2377,6 +2566,13 @@ document.addEventListener("DOMContentLoaded", () => {
             document.getElementById("exp-card").value = exp.cardId || "pix";
             document.getElementById("exp-category").value = exp.category || "🍔 Alimentação";
             document.getElementById("exp-status").value = exp.status || "Pendentes";
+
+            const installmentsSelect = document.getElementById("exp-installments");
+            if (installmentsSelect) {
+              // Parcelas materializadas são edições pontuais: manter como "À vista" para não re-parcelar
+              installmentsSelect.value = exp.parentInstallmentId ? "1" : (String(exp.installments || 1));
+            }
+            syncInstallmentsField();
 
             const payDateGroup = document.getElementById("group-exp-pay-date");
             const payDateInput = document.getElementById("exp-pay-date");
@@ -2593,7 +2789,10 @@ document.addEventListener("DOMContentLoaded", () => {
       optionsHTML += `<option value="${c.id}">💳 ${c.name} (${c.digits})</option>`;
     });
     
-    if (cardSelect) cardSelect.innerHTML = optionsHTML;
+    if (cardSelect) {
+      cardSelect.innerHTML = optionsHTML;
+      syncInstallmentsField();
+    }
     if (recCardSelect) recCardSelect.innerHTML = optionsHTML;
   }
 
@@ -3131,6 +3330,10 @@ document.addEventListener("DOMContentLoaded", () => {
       if (payDateInput) payDateInput.value = "";
       if (paidValGroup) paidValGroup.style.display = "none";
       if (paidValInput) paidValInput.value = "";
+
+      const installmentsSelect = document.getElementById("exp-installments");
+      if (installmentsSelect) installmentsSelect.value = "1";
+      syncInstallmentsField();
     });
   }
 
@@ -3162,6 +3365,39 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
   }
+
+  // Parcelamento no cartão: mostra o campo apenas quando a forma de pagamento é cartão de crédito
+  // e exibe o valor da parcela conforme o valor total e o nº de parcelas escolhidos
+  function syncInstallmentsField() {
+    const cardSelect = document.getElementById("exp-card");
+    const group = document.getElementById("group-exp-installments");
+    const select = document.getElementById("exp-installments");
+    const hint = document.getElementById("exp-installment-hint");
+    if (!cardSelect || !group || !select) return;
+    const isCard = cardSelect.value.startsWith("card-");
+    group.style.display = isCard ? "flex" : "none";
+    if (!hint) return;
+
+    const n = parseInt(select.value, 10) || 1;
+    const valInput = document.getElementById("exp-val");
+    const total = parseFloat(valInput ? valInput.value : NaN);
+    if (isCard && n > 1 && !isNaN(total) && total > 0) {
+      const parcel = Math.round((total / n) * 100) / 100;
+      hint.textContent = `Parcelado em ${n}x de ${formatCurrency(parcel)} = ${formatCurrency(total)}`;
+      hint.style.display = "block";
+    } else {
+      hint.style.display = "none";
+    }
+  }
+
+  const expCardSelect = document.getElementById("exp-card");
+  if (expCardSelect) expCardSelect.addEventListener("change", syncInstallmentsField);
+
+  const expValInput = document.getElementById("exp-val");
+  if (expValInput) expValInput.addEventListener("input", syncInstallmentsField);
+
+  const expInstallmentsSelect = document.getElementById("exp-installments");
+  if (expInstallmentsSelect) expInstallmentsSelect.addEventListener("change", syncInstallmentsField);
 
   if (btnNovaOS) {
     btnNovaOS.addEventListener("click", () => {
@@ -3234,41 +3470,85 @@ document.addEventListener("DOMContentLoaded", () => {
       const cardId = document.getElementById("exp-card").value;
       const category = document.getElementById("exp-category").value;
       const status = document.getElementById("exp-status").value;
-      const paymentDate = status === "Pagas" ? document.getElementById("exp-pay-date").value : "";
-      
+      const installments = parseInt(document.getElementById("exp-installments").value, 10) || 1;
+      // Compra parcelada no cartão pertence sempre à fatura: normaliza para "Comprometido"
+      // (a menos que o usuário tenha marcado explicitamente como paga)
+      const finalStatus = installments > 1 ? (status === "Pagas" ? "Pagas" : "Comprometido") : status;
+      const paymentDate = finalStatus === "Pagas" ? document.getElementById("exp-pay-date").value : "";
+
       const rawPaidVal = document.getElementById("exp-paid-val").value;
-      const paidValue = (status === "Pagas" && rawPaidVal !== "") ? parseFloat(rawPaidVal) : undefined;
+      const paidValue = (finalStatus === "Pagas" && rawPaidVal !== "") ? parseFloat(rawPaidVal) : undefined;
 
       if (id) {
         const exp = state.expenses.find(e => e.id === id);
         if (exp) {
+          const isMaterializedParcel = !!exp.parentInstallmentId;
           exp.description = description;
           exp.value = value;
           exp.date = date;
           exp.cardId = cardId;
           exp.category = category;
-          exp.status = status;
+          exp.status = finalStatus;
           exp.paymentDate = paymentDate;
           exp.paidValue = paidValue;
+
+          if (!isMaterializedParcel) {
+            if (installments > 1) {
+              exp.installments = installments;
+              exp.installmentTotal = installments;
+              exp.installmentNo = exp.installmentNo || 1;
+              // Sincronizar parcelas materializadas e remover as que saíram do novo período
+              const pv = parcelValue(exp);
+              const baseD = new Date(date + "T00:00:00");
+              state.expenses.filter(x => x.parentInstallmentId === exp.id).forEach(child => {
+                const childD = new Date(child.date + "T00:00:00");
+                const diff = (childD.getFullYear() - baseD.getFullYear()) * 12 + (childD.getMonth() - baseD.getMonth());
+                if (diff > 0 && diff < installments) {
+                  child.description = exp.description;
+                  child.category = exp.category;
+                  child.value = pv;
+                  child.installmentTotal = installments;
+                }
+              });
+              state.expenses = state.expenses.filter(x => {
+                if (x.parentInstallmentId !== exp.id) return true;
+                const childD = new Date(x.date + "T00:00:00");
+                const diff = (childD.getFullYear() - baseD.getFullYear()) * 12 + (childD.getMonth() - baseD.getMonth());
+                return diff > 0 && diff < installments;
+              });
+            } else {
+              // Vira à vista: remove metadados de parcelamento e as parcelas materializadas
+              delete exp.installments;
+              delete exp.installmentNo;
+              delete exp.installmentTotal;
+              state.expenses = state.expenses.filter(x => x.parentInstallmentId !== exp.id);
+            }
+          }
         }
       } else {
         const newExpense = {
-          id: "exp-" + Date.now(),
+          id: uniqueExpenseId(),
           description,
           value,
           date,
           cardId,
           category,
-          status,
+          status: finalStatus,
           paymentDate,
           paidValue
         };
+        if (installments > 1) {
+          newExpense.installments = installments;
+          newExpense.installmentNo = 1;
+          newExpense.installmentTotal = installments;
+        }
         state.expenses.push(newExpense);
       }
       saveState();
       updateAllDashboard();
-      
+
       formDespesa.reset();
+      syncInstallmentsField();
       modalDespesa.close();
     });
   }

@@ -1,4 +1,4 @@
-// Dados Padrão (Mock Data) para inicialização do sistema
+﻿// Dados Padrão (Mock Data) para inicialização do sistema
 // Permite que o sistema já inicie preenchido e com dados que simulam
 // perfeitamente a imagem fornecida pelo usuário, mas de forma dinâmica.
 

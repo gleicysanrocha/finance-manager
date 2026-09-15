@@ -46,7 +46,6 @@
           <li><a href="#" class="nav-item active" data-tab="dashboard"><span class="nav-icon" id="nav-icon-budget"></span>Orçamentos</a></li>
           <li><a href="#" class="nav-item" data-tab="recorrentes"><span class="nav-icon" id="nav-icon-recurring"></span>Recorrentes</a></li>
           <li><a href="#" class="nav-item" data-tab="metas"><span class="nav-icon" id="nav-icon-goal"></span>Metas</a></li>
-          <li><a href="#" class="nav-item" data-tab="contas"><span class="nav-icon" id="nav-icon-account"></span>Contas</a></li>
           <li><a href="#" class="nav-item" data-tab="projetos"><span class="nav-icon" id="nav-icon-projects"></span>Projetos</a></li>
           <li><a href="#" class="nav-item" data-tab="relatorios"><span class="nav-icon" id="nav-icon-report"></span>Relatórios</a></li>
           <li><a href="#" class="nav-item" data-tab="perfil"><span class="nav-icon" id="nav-icon-profile"></span>Minha Conta</a></li>
@@ -85,7 +84,7 @@
               <option value="1">Fevereiro</option>
               <option value="2">Março</option>
               <option value="3">Abril</option>
-              <option value="4" selected>Maio</option>
+              <option value="4">Maio</option>
               <option value="5">Junho</option>
               <option value="6">Julho</option>
               <option value="7">Agosto</option>
@@ -317,7 +316,7 @@
               </button>
             </div>
             <div class="table-search-filters">
-              <input type="text" id="search-transactions" placeholder="Buscar por descrição..." aria-label="Buscar Transações">
+              <input type="text" id="search-transactions" name="searchQuery" autocomplete="off" placeholder="Buscar por descrição..." aria-label="Buscar Transações">
             </div>
           </header>
 
@@ -511,23 +510,7 @@
         </section>
       </div>
 
-      <!-- VISÃO 4: CONTAS BANCÁRIAS -->
-      <div id="view-contas" class="tab-view" style="display: none;">
-        <section class="welcome-filter-section">
-          <div class="welcome-text">
-            <h2>Contas & Saldos Liquidos 🏦</h2>
-            <p>Controle os saldos líquidos de todas as suas carteiras e contas vinculadas.</p>
-          </div>
-          <button class="action-btn btn-expense" style="padding: 0.6rem 1.25rem; font-size: 0.88rem; width: auto;" id="btn-nova-conta">
-            + Vincular Conta
-          </button>
-        </section>
 
-        <!-- Grade de Saldos Bancários -->
-        <section id="bank-accounts-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem; margin-top: 1.5rem;">
-          <!-- Os cards de contas bancárias dinâmicas serão injetados aqui via JS -->
-        </section>
-      </div>
 
       <!-- VISÃO 5: RELATÓRIOS -->
       <div id="view-relatorios" class="tab-view" style="display: none;">
@@ -801,6 +784,9 @@
               <button type="button" class="action-btn btn-expense" id="btn-admin-connect" style="justify-content: flex-start;">
                 ☁️ Conectar Banco de Dados
               </button>
+              <button type="button" class="action-btn btn-card" id="btn-setup-firebase-config" style="justify-content: flex-start; background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);">
+                ⚙️ Configurar Chaves do Firebase (Nuvem)
+              </button>
             </div>
             <div id="cloud-info-authorized" style="display: none; flex-direction: column; gap: 0.75rem;">
               <p style="font-size: 0.88rem; color: var(--text-muted);">
@@ -815,49 +801,7 @@
             </div>
           </div>
 
-          <div class="glass-effect" id="admin-manage-users-card" style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem;">
-            <h3 style="font-size: 1.05rem; font-weight: 700;">Gerenciar Outro Usuário (Admin)</h3>
-            <form id="form-admin-manage-user" style="display: flex; flex-direction: column; gap: 1.15rem;">
-              <p style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.4; margin: 0;">
-                Pesquise um usuário pelo e-mail registrado para ativar ou reverter o plano Premium na nuvem.
-              </p>
-              <div class="form-group">
-                <label for="manage-user-email">E-mail do Usuário</label>
-                <input type="email" id="manage-user-email" placeholder="cliente@email.com" required>
-              </div>
-              <div class="form-row">
-                <div class="form-group">
-                  <label for="manage-user-tier">Novo Plano</label>
-                  <select id="manage-user-tier" required>
-                    <option value="premium" selected>👑 Premium</option>
-                    <option value="free">🔒 Gratuito</option>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label for="manage-admin-secret">Senha Admin (Secret)</label>
-                  <input type="password" id="manage-admin-secret" placeholder="ADMIN_SECRET_KEY" required>
-                </div>
-              </div>
-              <button type="submit" class="btn-submit btn-os-submit" id="btn-submit-manage-user" style="width: 100%; border: none; padding: 0.75rem;">
-                Atualizar Plano do Usuário 🚀
-              </button>
-            </form>
-          </div>
 
-          <div class="glass-effect" id="admin-tier-card" style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem;">
-            <h3 style="font-size: 1.05rem; font-weight: 700;">Assinatura & Plano (Admin)</h3>
-            <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-              <p style="font-size: 0.88rem; color: var(--text-muted);">
-                Status Atual: <span id="admin-tier-status" style="font-weight: 800;">Carregando...</span>
-              </p>
-              <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.25rem;">
-                Seu ID de Usuário (UID):<br><code id="admin-user-uid" style="font-size: 0.72rem; background: rgba(148, 163, 184, 0.12); padding: 4px 8px; border-radius: 6px; word-break: break-all; color: var(--text-main); font-weight: 700; margin-top: 0.25rem; display: inline-block;">offline</code>
-              </p>
-              <button type="button" class="action-btn btn-expense" id="btn-admin-toggle-tier" style="justify-content: flex-start; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); width: 100%; border: none;">
-                👑 Ativar Plano Premium (Admin)
-              </button>
-            </div>
-          </div>
 
           <div class="glass-effect" style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem;">
             <h3 style="font-size: 1.05rem; font-weight: 700;">Segurança & Dados</h3>
@@ -867,6 +811,10 @@
             <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.5rem;">
               <button class="action-btn btn-income" id="btn-export-data" style="justify-content: flex-start; color: var(--text-main); border: 1px solid var(--border-color);">
                 📤 Exportar Dados (JSON)
+              </button>
+              <input type="file" id="import-backup-input" accept=".json" style="display: none;">
+              <button class="action-btn btn-income" id="btn-import-data" style="justify-content: flex-start; color: var(--text-main); border: 1px solid var(--border-color);">
+                📥 Importar Backup (JSON)
               </button>
               <button class="action-btn btn-card" id="btn-reset-db" style="justify-content: flex-start; background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%); box-shadow: 0 4px 14px rgba(239, 68, 68, 0.25);">
                 🗑️ Restaurar Banco de Dados
@@ -929,9 +877,22 @@
               </div>
             </div>
 
+            <!-- Formulário de Login Direto no Perfil -->
+            <div id="profile-direct-login-box" style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 1rem; padding: 1rem; background: rgba(148, 163, 184, 0.08); border-radius: 8px; border: 1px solid var(--border-color);">
+              <h4 style="font-size: 0.88rem; font-weight: 700; color: var(--text-main);">🔑 Conectar sua conta em Nuvem</h4>
+              <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                <input type="email" id="profile-login-email" placeholder="Seu e-mail cadastrado" autocomplete="email" style="width: 100%; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-main); color: var(--text-main); font-size: 0.88rem;">
+                <input type="password" id="profile-login-password" placeholder="Sua senha" autocomplete="current-password" style="width: 100%; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-main); color: var(--text-main); font-size: 0.88rem;">
+                <button type="button" id="btn-profile-direct-login" onclick="window.executeDirectProfileLogin()" style="padding: 10px; border-radius: 6px; border: none; background: linear-gradient(135deg, #097d52 0%, #0fb77a 100%); color: #fff; font-weight: 700; font-size: 0.88rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem; box-shadow: 0 4px 14px rgba(15, 183, 122, 0.25);">
+                  🔓 Entrar e Carregar Meus Dados
+                </button>
+                <div id="profile-direct-login-feedback" style="font-size: 0.78rem; font-weight: 600; color: var(--color-danger); display: none;"></div>
+              </div>
+            </div>
+
             <div style="display: flex; gap: 0.75rem; margin-top: 1.5rem; border-top: 1px solid var(--border-color); padding-top: 1.25rem;">
-              <button type="button" class="action-btn btn-card" id="dropdown-logout-btn" style="flex: 1; justify-content: center; background: linear-gradient(135deg, #475569 0%, #64748b 100%); box-shadow: 0 4px 14px rgba(100, 116, 139, 0.25);">
-                🚪 Sair da Conta
+              <button type="button" class="action-btn btn-card" id="dropdown-logout-btn" onclick="window.handleLogoutOrLogin(event)" style="flex: 1; justify-content: center; background: linear-gradient(135deg, #097d52 0%, #0fb77a 100%); box-shadow: 0 4px 14px rgba(15, 183, 122, 0.25);">
+                🔑 Entrar / Conectar Conta
               </button>
               <button type="button" class="action-btn btn-card" id="dropdown-reset-btn" style="flex: 1; justify-content: center; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); box-shadow: 0 4px 14px rgba(239, 68, 68, 0.25);">
                 🗑️ Resetar Dados
@@ -942,21 +903,26 @@
           <!-- Card de Informações da Licença -->
           <div class="glass-effect" style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem;">
             <h3 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 0.25rem; display: flex; align-items: center; gap: 0.5rem;">
-              👑 Status da Licença
+              💎 Status do Sistema
             </h3>
             
-            <div id="profile-tier-badge-container" style="margin-top: 0.5rem;">
-              <span id="profile-tier-badge" style="background: linear-gradient(135deg, #64748b 0%, #94a3b8 100%); color: white; padding: 6px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: 800; display: inline-block;">PLANO GRATUITO</span>
+            <div style="margin-top: 0.5rem;">
+              <span style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 6px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: 800; display: inline-block;">ACESSO COMPLETO & ILIMITADO</span>
             </div>
 
             <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.5rem; font-size: 0.85rem; color: var(--text-muted); line-height: 1.5;">
-              <div id="profile-tier-limits">
-                <!-- Limites do plano mostrados aqui -->
-              </div>
+              <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem;">
+                <li>✅ <strong>Cartões de Crédito:</strong> Ilimitados</li>
+                <li>✅ <strong>Contas Bancárias:</strong> Ilimitadas</li>
+                <li>✅ <strong>Metas & Objetivos:</strong> Ilimitados</li>
+                <li>✅ <strong>Relatórios & BI:</strong> Totalmente Liberados</li>
+                <li>✅ <strong>Lançamentos mensais:</strong> Ilimitados</li>
+                <li>✅ <strong>Sincronização Nuvem:</strong> Ativa e Gratuita</li>
+              </ul>
             </div>
 
-            <div id="profile-upgrade-action-container" style="margin-top: auto; padding-top: 1rem;">
-              <!-- Botão de Upgrade ou Mensagem de Sucesso -->
+            <div style="margin-top: auto; padding-top: 1rem; background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.2); padding: 1rem; border-radius: 8px; text-align: center; color: var(--color-success); font-weight: 700; font-size: 0.85rem;">
+              🎉 Todos os recursos premium estão liberados gratuitamente para você e sua equipe!
             </div>
           </div>
 
@@ -1026,6 +992,30 @@
             <label for="exp-pay-date">Data do Pagamento</label>
             <input type="date" id="exp-pay-date">
           </div>
+          <div class="form-group" id="group-exp-paid-val" style="display: none;">
+            <label for="exp-paid-val">Valor Pago (R$)</label>
+            <input type="number" step="0.01" id="exp-paid-val" placeholder="0,00">
+          </div>
+        </div>
+        <div class="form-group" id="group-exp-installments" style="display: none;">
+          <label for="exp-installments">Parcelamento no Cartão</label>
+          <select id="exp-installments">
+            <option value="1" selected>1x (À vista)</option>
+            <option value="2">2x</option>
+            <option value="3">3x</option>
+            <option value="4">4x</option>
+            <option value="5">5x</option>
+            <option value="6">6x</option>
+            <option value="7">7x</option>
+            <option value="8">8x</option>
+            <option value="9">9x</option>
+            <option value="10">10x</option>
+            <option value="11">11x</option>
+            <option value="12">12x</option>
+            <option value="18">18x</option>
+            <option value="24">24x</option>
+          </select>
+          <small id="exp-installment-hint" style="display: none; color: var(--text-muted); font-size: 0.75rem;"></small>
         </div>
         <footer class="modal-footer">
           <button type="button" class="btn-cancel" id="btn-cancelar-despesa">Cancelar</button>
@@ -1176,69 +1166,7 @@
     </div>
   </dialog>
 
-  <!-- 5. Modal Novo Banco / Conta -->
-  <dialog class="premium-modal glass-effect" id="modal-conta-dialog">
-    <div class="modal-content">
-      <header class="modal-header">
-        <h3 id="modal-conta-title">Vincular Nova Conta</h3>
-        <button class="modal-close-btn" id="close-modal-conta" aria-label="Fechar">&times;</button>
-      </header>
-      <form id="form-nova-conta" method="dialog">
-        <input type="hidden" id="acc-id">
-        <div class="form-row">
-          <div class="form-group">
-            <label for="acc-name">Nome do Banco / Conta</label>
-            <input type="text" id="acc-name" placeholder="Ex: Nubank, Itaú, Carteira" required>
-          </div>
-          <div class="form-group">
-            <label for="acc-type">Tipo de Conta</label>
-            <select id="acc-type" required>
-              <option value="CONTA DIGITAL" selected>Conta Digital</option>
-              <option value="CONTA CORRENTE">Conta Corrente</option>
-              <option value="POUPANÇA">Poupança</option>
-              <option value="CARTEIRA PRINCIPAL">Carteira Principal</option>
-              <option value="INVESTIMENTOS">Investimentos</option>
-            </select>
-          </div>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label for="acc-logo">Sigla / Ícone (Máx 4 caracteres ou Emoji)</label>
-            <input type="text" id="acc-logo" maxlength="4" placeholder="Ex: Nu, i, 💰" required>
-          </div>
-          <div class="form-group">
-            <label for="acc-balance">Saldo Inicial / Atual (R$)</label>
-            <input type="number" step="0.01" id="acc-balance" placeholder="0,00" required>
-          </div>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label for="acc-agency">Agência / Detalhe 1</label>
-            <input type="text" id="acc-agency" placeholder="Ex: Agência 0001 ou 100% CDI" required>
-          </div>
-          <div class="form-group">
-            <label for="acc-number">Conta / Detalhe 2</label>
-            <input type="text" id="acc-number" placeholder="Ex: Conta 12345-6 ou Nubank Asset" required>
-          </div>
-        </div>
-        <div class="form-group">
-          <label for="acc-color">Estilo de Cor (Gradiente)</label>
-          <select id="acc-color" required>
-            <option value="linear-gradient(135deg, #4f1d7a 0%, #830ad1 100%)">Nubank Roxo (Original)</option>
-            <option value="linear-gradient(135deg, #e05e00 0%, #ec8b16 100%)">Itaú Laranja (Original)</option>
-            <option value="linear-gradient(135deg, #02594a 0%, #0d9488 100%)">Reserva Verde Teal (Original)</option>
-            <option value="linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)">Azul Royal</option>
-            <option value="linear-gradient(135deg, #0f172a 0%, #334155 100%)">Grafite Premium</option>
-            <option value="linear-gradient(135deg, #dc2626 0%, #f43f5e 100%)">Vermelho Coral</option>
-          </select>
-        </div>
-        <footer class="modal-footer">
-          <button type="button" class="btn-cancel" id="btn-cancelar-conta">Cancelar</button>
-          <button type="submit" class="btn-submit btn-expense-submit">Salvar Conta</button>
-        </footer>
-      </form>
-    </div>
-  </dialog>
+
 
   <!-- 6. Modal Nova Despesa Recorrente -->
   <dialog class="premium-modal glass-effect" id="modal-recorrente-dialog">
@@ -1560,15 +1488,16 @@
 
   <!-- TELA DE LOGIN / AUTENTICAÇÃO (FIREBASE) -->
   <div id="auth-overlay" class="auth-overlay" style="display: none;">
-    <div class="auth-card">
+    <div class="auth-card" style="position: relative;">
+      <button type="button" id="btn-close-auth-modal" onclick="window.hideAuthOverlay()" style="position: absolute; top: 1rem; right: 1rem; background: rgba(148, 163, 184, 0.15); border: none; font-size: 1.25rem; font-weight: bold; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; color: var(--text-main); display: flex; align-items: center; justify-content: center; z-index: 10000;" title="Fechar">&times;</button>
       <div class="auth-header">
         <div class="auth-logo-icon" id="auth-logo-svg"></div>
         <h2 id="auth-title">Acesse sua conta</h2>
         <p id="auth-description">Entre para acessar seus dados financeiros com segurança.</p>
       </div>
       <div class="auth-mode-switch" role="tablist" aria-label="Escolha entrar ou criar uma conta">
-        <button type="button" id="auth-mode-signin" class="active" role="tab" aria-selected="true">Entrar</button>
-        <button type="button" id="auth-mode-signup" role="tab" aria-selected="false">Criar conta</button>
+        <button type="button" id="auth-mode-signin" onclick="window.setAuthMode('signin')" class="active" role="tab" aria-selected="true">Entrar</button>
+        <button type="button" id="auth-mode-signup" onclick="window.setAuthMode('signup')" role="tab" aria-selected="false">Criar conta</button>
       </div>
       <form id="auth-form">
         <div class="form-group auth-signup-field" hidden>
@@ -1594,7 +1523,7 @@
       <div class="auth-divider">
         <span>ou</span>
       </div>
-      <button type="button" id="btn-auth-offline" class="btn-offline">
+      <button type="button" id="btn-auth-offline" onclick="window.hideAuthOverlay()" class="btn-offline">
         Continuar somente neste dispositivo
       </button>
       <p class="auth-privacy">Cada conta possui uma área privada e independente no Firebase.</p>
@@ -1660,18 +1589,154 @@
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
   <script src="js/icons.js"></script>
   <script src="js/data.js"></script>
+  <script src="js/config.js"></script>
   <script src="js/firebase-config.js"></script>
   <script src="js/ui-helpers.js"></script>
   <script src="js/auth-logic.js"></script>
   <script src="js/app.js"></script>
   <script>
+    var _FB_API_KEY = "AIzaSyDDwdVRHEDw7QO3dZZt3iW37eCZFYwy_6A";
+    var _FB_PROJECT_ID = "financas-gley";
+
+    window.FIREBASE_CONFIG = {
+      apiKey: _FB_API_KEY,
+      authDomain: "financas-gley.firebaseapp.com",
+      projectId: _FB_PROJECT_ID,
+      storageBucket: "financas-gley.firebasestorage.app",
+      messagingSenderId: "353480417657",
+      appId: "1:353480417657:web:0c98d7378745f18df9cfa8"
+    };
+
+    // Desregistrar Service Workers antigos para forçar versão nova
     if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js')
-          .then(reg => console.log('Service Worker registrado com sucesso:', reg.scope))
-          .catch(err => console.log('Erro ao registrar Service Worker:', err));
+      navigator.serviceWorker.getRegistrations().then(function(regs) {
+        regs.forEach(function(r) { r.unregister(); });
       });
     }
+    if (window.caches) {
+      caches.keys().then(function(names) {
+        names.forEach(function(n) { caches.delete(n); });
+      });
+    }
+
+    window.executeDirectProfileLogin = async function() {
+      var emailInput = document.getElementById("profile-login-email");
+      var passInput  = document.getElementById("profile-login-password");
+      var btn        = document.getElementById("btn-profile-direct-login");
+      var feedback   = document.getElementById("profile-direct-login-feedback");
+
+      var email    = emailInput ? emailInput.value.trim() : "";
+      var password = passInput  ? passInput.value         : "";
+
+      if (!email || !password) {
+        alert("Preencha o e-mail e a senha antes de continuar.");
+        return;
+      }
+
+      if (btn) { btn.disabled = true; btn.textContent = "Aguarde..."; }
+      if (feedback) feedback.style.display = "none";
+
+      try {
+        // ── 1. LOGIN via Firebase Auth REST API (funciona em QUALQUER domínio) ──
+        var authUrl = "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=" + _FB_API_KEY;
+        var authRes = await fetch(authUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: email, password: password, returnSecureToken: true })
+        });
+        var authData = await authRes.json();
+
+        if (!authRes.ok || !authData.idToken) {
+          var errCode = (authData.error && authData.error.message) || "ERRO_DESCONHECIDO";
+          var errMsg  = errCode;
+          if (errCode.includes("INVALID_PASSWORD") || errCode.includes("INVALID_LOGIN_CREDENTIALS")) {
+            errMsg = "E-mail ou senha incorretos.";
+          } else if (errCode.includes("EMAIL_NOT_FOUND") || errCode.includes("USER_NOT_FOUND")) {
+            errMsg = "E-mail nao cadastrado no Firebase.";
+          } else if (errCode.includes("TOO_MANY_ATTEMPTS")) {
+            errMsg = "Conta bloqueada por muitas tentativas. Aguarde e tente novamente.";
+          }
+          if (feedback) { feedback.textContent = errMsg; feedback.style.display = "block"; }
+          alert("Erro no login: " + errMsg);
+          return;
+        }
+
+        var loggedUser = {
+          uid:          authData.localId,
+          email:        authData.email,
+          displayName:  authData.displayName || authData.email.split("@")[0],
+          idToken:      authData.idToken,
+          refreshToken: authData.refreshToken
+        };
+
+        // ── 2. Salvar sessao no localStorage ──
+        localStorage.setItem("finance_manager_active_user", JSON.stringify(loggedUser));
+        window.currentUser    = loggedUser;
+        window.isCloudEnabled = true;
+
+        // ── 3. Buscar dados do Firestore via REST API ──
+        var fsUrl = "https://firestore.googleapis.com/v1/projects/" + _FB_PROJECT_ID
+                  + "/databases/(default)/documents/financial_data/" + loggedUser.uid;
+        try {
+          var fsRes = await fetch(fsUrl, {
+            headers: { "Authorization": "Bearer " + loggedUser.idToken }
+          });
+          if (fsRes.ok) {
+            var fsDoc = await fsRes.json();
+            function fromFsVal(v) {
+              if (!v) return null;
+              if (v.stringValue  !== undefined) return v.stringValue;
+              if (v.integerValue !== undefined) return Number(v.integerValue);
+              if (v.doubleValue  !== undefined) return Number(v.doubleValue);
+              if (v.booleanValue !== undefined) return v.booleanValue;
+              if (v.nullValue    !== undefined) return null;
+              if (v.arrayValue)  return (v.arrayValue.values || []).map(fromFsVal);
+              if (v.mapValue) {
+                var o = {};
+                Object.keys(v.mapValue.fields || {}).forEach(function(k) { o[k] = fromFsVal(v.mapValue.fields[k]); });
+                return o;
+              }
+              return null;
+            }
+            if (fsDoc.fields) {
+              var raw = {};
+              Object.keys(fsDoc.fields).forEach(function(k) { raw[k] = fromFsVal(fsDoc.fields[k]); });
+              var cs = raw.state || raw;
+              function lsKey(s) { return "finance-manager-" + loggedUser.uid + "-" + s; }
+              if (cs.expenses)  localStorage.setItem(lsKey("expenses"),  JSON.stringify(cs.expenses));
+              if (cs.revenues)  localStorage.setItem(lsKey("revenues"),  JSON.stringify(cs.revenues));
+              if (cs.cards)     localStorage.setItem(lsKey("cards"),     JSON.stringify(cs.cards));
+              if (cs.accounts)  localStorage.setItem(lsKey("accounts"),  JSON.stringify(cs.accounts));
+              if (cs.recurring) localStorage.setItem(lsKey("recurring"), JSON.stringify(cs.recurring));
+              if (cs.goals)     localStorage.setItem(lsKey("goals"),     JSON.stringify(cs.goals));
+              if (cs.projects)  localStorage.setItem(lsKey("projects"),  JSON.stringify(cs.projects));
+              if (cs.userName)  localStorage.setItem(lsKey("username"),  cs.userName);
+              var tier = raw.tier || cs.tier;
+              if (tier) localStorage.setItem(lsKey("tier"), tier);
+            }
+          }
+        } catch (fsErr) {
+          console.warn("Firestore REST:", fsErr);
+        }
+
+        // ── 4. Atualizar interface e recarregar ──
+        if (window.updateCloudUI)       window.updateCloudUI(true, email);
+        if (window.updateSyncIndicator) window.updateSyncIndicator("online");
+        if (window.updateAdminUI)       window.updateAdminUI();
+        if (window.loadState)           await window.loadState();
+
+        alert("Conectado como " + email + "! Seus dados foram carregados com sucesso.");
+        location.reload();
+
+      } catch (err) {
+        console.error("Login error:", err);
+        var m = (err && err.message) ? err.message : String(err);
+        if (feedback) { feedback.textContent = m; feedback.style.display = "block"; }
+        alert("Erro inesperado: " + m);
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = "🔓 Entrar e Carregar Meus Dados"; }
+      }
+    };
   </script>
 </body>
 </html>

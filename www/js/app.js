@@ -1,4 +1,4 @@
-// ===========================================================================
+﻿// ===========================================================================
 // LÓGICA CENTRAL - GERENCIADOR FINANCEIRO PREMIUM
 // ===========================================================================
 
@@ -17,12 +17,14 @@ document.addEventListener("DOMContentLoaded", () => {
     userName: "Usuário",
     tagline: "Não se trata de quanto você ganha, mas de como você gerencia.",
     theme: "light",
-    selectedMonth: 4, // Maio (0-indexed: 4)
-    selectedYear: 2026,
+    selectedMonth: new Date().getMonth(), // Mês atual em tempo real
+    selectedYear: new Date().getFullYear(), // Ano atual em tempo real
     currentTab: "despesas",
     searchQuery: "",
     selectedCardId: "card-1",
-    tier: "free"
+    tier: "premium",
+    // Faturas cadastradas manualmente por cartão (key = cardId, value = valor da fatura)
+    cardInvoices: {}
   };
 
   // Frases financeiras rotativas para o Tagline
@@ -168,30 +170,22 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function getLocalValue(suffix) {
-    const newKey = getLocalStorageKey(suffix);
-    const scopedValue = localStorage.getItem(newKey);
-    if (scopedValue !== null) return scopedValue;
-
-    // Fallback de migração automática
     const owner = currentUser?.uid || "offline";
-    const oldKey = `gley-finance-${owner}-${suffix}`;
-    const oldScopedValue = localStorage.getItem(oldKey);
-    if (oldScopedValue !== null) {
-      localStorage.setItem(newKey, oldScopedValue);
-      localStorage.removeItem(oldKey);
-      return oldScopedValue;
-    }
+    const keysToTry = [
+      `finance-manager-${owner}-${suffix}`,
+      `gley-finance-${owner}-${suffix}`,
+      `finance-manager-offline-${suffix}`,
+      `gley-finance-offline-${suffix}`,
+      `finance-manager-${suffix}`,
+      `gley-finance-${suffix}`,
+      suffix
+    ];
 
-    if (!currentUser) {
-      const oldGlobalKey = `gley-finance-${suffix}`;
-      const oldGlobalValue = localStorage.getItem(oldGlobalKey);
-      if (oldGlobalValue !== null) {
-        const newGlobalKey = `finance-manager-${suffix}`;
-        localStorage.setItem(newGlobalKey, oldGlobalValue);
-        localStorage.removeItem(oldGlobalKey);
-        return oldGlobalValue;
+    for (const key of keysToTry) {
+      const val = localStorage.getItem(key);
+      if (val !== null && val !== undefined && val !== "") {
+        return val;
       }
-      return localStorage.getItem(`finance-manager-${suffix}`);
     }
     return null;
   }
@@ -214,14 +208,21 @@ document.addEventListener("DOMContentLoaded", () => {
       localStorage.removeItem(getLocalStorageKey(suffix));
       const owner = currentUser?.uid || "offline";
       localStorage.removeItem(`gley-finance-${owner}-${suffix}`);
-      if (!currentUser) {
-        localStorage.removeItem(`gley-finance-${suffix}`);
-        localStorage.removeItem(`finance-manager-${suffix}`);
-      }
+      localStorage.removeItem(`gley-finance-${suffix}`);
+      localStorage.removeItem(`finance-manager-${suffix}`);
     });
   }
 
   async function loadState() {
+    // Sincronizar variáveis locais com o escopo global antes de ler do localStorage
+    if (window.currentUser) {
+      currentUser = window.currentUser;
+      isCloudEnabled = true;
+    } else {
+      currentUser = null;
+      isCloudEnabled = false;
+    }
+
     const storedTheme = getLocalValue("theme");
     if (storedTheme) {
       state.theme = storedTheme;
@@ -229,7 +230,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const storedTier = getLocalValue("tier");
-    state.tier = storedTier || "free";
+    state.tier = "premium";
 
     const storedCards = getLocalValue("cards");
     const storedExpenses = getLocalValue("expenses");
@@ -241,26 +242,29 @@ document.addEventListener("DOMContentLoaded", () => {
     const storedProjects = getLocalValue("projects");
     const storedUserName = getLocalValue("username");
     const storedTagline = getLocalValue("tagline");
-    if (storedCards && storedExpenses && storedRevenues && storedOrders) {
-      state.cards = JSON.parse(storedCards);
-      state.expenses = JSON.parse(storedExpenses);
-      state.revenues = JSON.parse(storedRevenues);
-      state.orders = JSON.parse(storedOrders);
+    const hasAnyLocalData = storedCards !== null || storedExpenses !== null || storedRevenues !== null || storedOrders !== null || storedAccounts !== null;
+
+    if (hasAnyLocalData) {
+      state.cards = storedCards ? JSON.parse(storedCards) : [];
+      state.expenses = storedExpenses ? JSON.parse(storedExpenses) : [];
+      state.revenues = storedRevenues ? JSON.parse(storedRevenues) : [];
+      state.orders = storedOrders ? JSON.parse(storedOrders) : [];
+      state.accounts = storedAccounts ? JSON.parse(storedAccounts) : [];
+      state.recurring = storedRecurring ? JSON.parse(storedRecurring) : [];
+      state.goals = storedGoals ? JSON.parse(storedGoals) : [];
+      state.projects = storedProjects ? JSON.parse(storedProjects) : [];
+      state.cardInvoices = storedCardInvoices ? JSON.parse(storedCardInvoices) : {};
     } else {
+      // Sem dados gravados: manter campos limpos sem forçar dados demonstrativos mockados
       state.cards = [];
       state.expenses = [];
       state.revenues = [];
       state.orders = [];
-    }
-
-    state.accounts = storedAccounts ? JSON.parse(storedAccounts) : [];
-    state.recurring = storedRecurring ? JSON.parse(storedRecurring) : [];
-    state.goals = storedGoals ? JSON.parse(storedGoals) : [];
-    
-    if (storedProjects) {
-      state.projects = JSON.parse(storedProjects);
-    } else {
-      state.projects = window.DEFAULT_PROJECTS ? JSON.parse(JSON.stringify(window.DEFAULT_PROJECTS)) : [];
+      state.accounts = [];
+      state.recurring = [];
+      state.goals = [];
+      state.projects = [];
+      state.cardInvoices = {};
     }
     
     state.userName = storedUserName || currentUser?.displayName || (currentUser ? "Usuário" : "Usuário");
@@ -269,59 +273,100 @@ document.addEventListener("DOMContentLoaded", () => {
     const storedProfilePhoto = getLocalValue("profilePhoto");
     state.profilePhoto = storedProfilePhoto || "";
 
+    const storedCardInvoices = getLocalValue("cardInvoices");
+
     updateProfileUI();
     updateTierUI();
     updateProfilePhotoUI();
 
-    if (isCloudEnabled && currentUser) {
+    // Sincronizar com window.currentUser caso loadState seja chamado antes do Firebase inicializar
+    if (window.currentUser && window.currentUser.uid && !currentUser) {
+      currentUser = window.currentUser;
+      isCloudEnabled = true;
+    }
+
+    if ((isCloudEnabled || (window.currentUser && window.currentUser.uid)) && currentUser) {
       updateSyncIndicator("syncing");
       try {
-        const docRef = db.collection("financial_data").doc(currentUser.uid);
-        const doc = await docRef.get();
+        let docData = null;
 
-        if (doc.exists) {
-          const docData = doc.data();
-          const cloudState = docData.state || {};
-          
-          state.cards = cloudState.cards || [];
-          state.expenses = cloudState.expenses || [];
-          state.revenues = cloudState.revenues || [];
-          state.orders = cloudState.orders || [];
-          state.accounts = cloudState.accounts || [];
-          state.recurring = cloudState.recurring || [];
-          state.goals = cloudState.goals || [];
-          state.projects = cloudState.projects || [];
-          state.userName = cloudState.userName || currentUser.displayName || "Usuário";
-          state.tagline = cloudState.tagline || "";
-          state.profilePhoto = cloudState.profilePhoto || "";
-          state.tier = docData.tier || cloudState.tier || "free";
-          localStorage.setItem(getLocalStorageKey("tier"), state.tier);
-          
-          if (cloudState.theme) {
-            state.theme = cloudState.theme;
+        // Tentar via Firestore REST API primeiro (funciona independente de domínio autorizado)
+        // Renovar token se necessário antes de buscar dados
+        if (!currentUser.idToken && currentUser.refreshToken && window.firebaseRefreshToken) {
+          console.log("loadState: Renovando token antes de buscar da nuvem...");
+          await window.firebaseRefreshToken();
+          currentUser = window.currentUser || currentUser;
+        }
+        if (currentUser.idToken && window.firestoreGet) {
+          try {
+            const restDoc = await window.firestoreGet("financial_data/" + currentUser.uid);
+            if (restDoc && restDoc.fields) {
+              docData = window.fromFirestoreDoc(restDoc);
+            }
+          } catch (restErr) {
+            console.warn("Firestore REST falhou, tentando SDK:", restErr);
+          }
+        }
+
+        // Fallback para o SDK do Firestore se REST não funcionou e db está disponível
+        if (!docData && db) {
+          const docRef = db.collection("financial_data").doc(currentUser.uid);
+          const doc = await docRef.get();
+          if (doc.exists) {
+            docData = doc.data() || {};
+          }
+        }
+
+        if (docData) {
+          const cloudState = docData.state || docData;
+
+          state.cards = cloudState.cards || docData.cards || state.cards || [];
+          state.expenses = cloudState.expenses || docData.expenses || state.expenses || [];
+          state.revenues = cloudState.revenues || docData.revenues || state.revenues || [];
+          state.orders = cloudState.orders || docData.orders || state.orders || [];
+          state.accounts = cloudState.accounts || docData.accounts || state.accounts || [];
+          state.recurring = cloudState.recurring || docData.recurring || state.recurring || [];
+          state.goals = cloudState.goals || docData.goals || state.goals || [];
+          state.projects = cloudState.projects || docData.projects || state.projects || [];
+          state.cardInvoices = cloudState.cardInvoices || docData.cardInvoices || state.cardInvoices || {};
+          state.userName = cloudState.userName || docData.userName || currentUser.displayName || state.userName || "Usuário";
+          state.tagline = cloudState.tagline || docData.tagline || state.tagline || DEFAULT_TAGLINE;
+          state.profilePhoto = cloudState.profilePhoto || docData.profilePhoto || state.profilePhoto || "";
+          state.tier = "premium";
+          localStorage.setItem(getLocalStorageKey("tier"), "premium");
+
+          if (cloudState.theme || docData.theme) {
+            state.theme = cloudState.theme || docData.theme;
             document.body.className = `theme-${state.theme}`;
             updateThemeIcon();
           }
+
+          // Persistir dados carregados da nuvem no localStorage local
+          localStorage.setItem(getLocalStorageKey("cards"), JSON.stringify(state.cards));
+          localStorage.setItem(getLocalStorageKey("expenses"), JSON.stringify(state.expenses));
+          localStorage.setItem(getLocalStorageKey("revenues"), JSON.stringify(state.revenues));
+          localStorage.setItem(getLocalStorageKey("orders"), JSON.stringify(state.orders));
+          localStorage.setItem(getLocalStorageKey("accounts"), JSON.stringify(state.accounts));
+          localStorage.setItem(getLocalStorageKey("recurring"), JSON.stringify(state.recurring));
+          localStorage.setItem(getLocalStorageKey("goals"), JSON.stringify(state.goals));
+          localStorage.setItem(getLocalStorageKey("projects"), JSON.stringify(state.projects || []));
+          localStorage.setItem(getLocalStorageKey("cardInvoices"), JSON.stringify(state.cardInvoices || {}));
+          localStorage.setItem(getLocalStorageKey("username"), state.userName);
+          localStorage.setItem(getLocalStorageKey("tagline"), state.tagline);
+          localStorage.setItem(getLocalStorageKey("theme"), state.theme);
+          localStorage.setItem(getLocalStorageKey("profilePhoto"), state.profilePhoto || "");
+
           updateProfileUI();
           updateTierUI();
           updateProfilePhotoUI();
           updateSyncIndicator("online");
+          updateAllDashboard(); // Re-renderizar dashboard com dados da nuvem
         } else {
-          const hasLocalData = [
-            state.cards,
-            state.expenses,
-            state.revenues,
-            state.orders,
-            state.accounts,
-            state.recurring,
-            state.goals
-          ].some((items) => items.length > 0);
-          if (hasLocalData && await window.customConfirm("Deseja enviar os dados deste dispositivo para esta conta?")) {
-            await saveState();
-          } else {
-            resetStateForNewUser(currentUser.displayName || "Usuário");
-            await saveState();
-          }
+          // Nenhum dado encontrado na nuvem - apenas criar documento inicial
+          // NÃO sobrescrever dados da nuvem com dados locais (evita perda de dados)
+          console.log("Criando documento inicial na nuvem para o usuário...");
+          await saveState();
+          updateSyncIndicator("online");
         }
       } catch (err) {
         console.error("Erro ao carregar dados do Firebase Firestore:", err);
@@ -329,10 +374,21 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
+    const now = new Date();
     const monthSelect = document.getElementById("select-month");
     const yearSelect = document.getElementById("select-year");
-    if (monthSelect) state.selectedMonth = parseInt(monthSelect.value);
-    if (yearSelect) state.selectedYear = parseInt(yearSelect.value);
+    if (monthSelect) {
+      if (!monthSelect.dataset.userSet) {
+        monthSelect.value = String(state.selectedMonth !== undefined ? state.selectedMonth : now.getMonth());
+      }
+      state.selectedMonth = parseInt(monthSelect.value);
+    }
+    if (yearSelect) {
+      if (!yearSelect.dataset.userSet) {
+        yearSelect.value = String(state.selectedYear !== undefined ? state.selectedYear : now.getFullYear());
+      }
+      state.selectedYear = parseInt(yearSelect.value);
+    }
     
     updateAllDashboard();
 
@@ -375,6 +431,7 @@ document.addEventListener("DOMContentLoaded", () => {
     localStorage.setItem(getLocalStorageKey("theme"), state.theme);
     localStorage.setItem(getLocalStorageKey("tier"), state.tier);
     localStorage.setItem(getLocalStorageKey("profilePhoto"), state.profilePhoto || "");
+    localStorage.setItem(getLocalStorageKey("cardInvoices"), JSON.stringify(state.cardInvoices || {}));
 
     updateTierUI();
 
@@ -394,15 +451,30 @@ document.addEventListener("DOMContentLoaded", () => {
           tagline: state.tagline,
           theme: state.theme,
           tier: state.tier,
-          profilePhoto: state.profilePhoto || ""
+          profilePhoto: state.profilePhoto || "",
+          cardInvoices: state.cardInvoices || {}
         };
 
-        const docRef = db.collection("financial_data").doc(currentUser.uid);
-        await docRef.set({
-          state: payload,
-          tier: state.tier,
-          updated_at: new Date().toISOString()
-        }, { merge: true });
+        let saved = false;
+        // Tentar via REST API primeiro (não requer domínio autorizado)
+        if (currentUser.idToken && window.firestoreSet) {
+          try {
+            await window.firestoreSet("financial_data/" + currentUser.uid, {
+              state: payload,
+              tier: state.tier,
+              updated_at: new Date().toISOString()
+            });
+            saved = true;
+          } catch (restErr) {
+            console.warn("Firestore REST save falhou, tentando SDK:", restErr);
+          }
+        }
+
+        // Fallback SDK
+        if (!saved && db) {
+          const docRef = db.collection("financial_data").doc(currentUser.uid);
+          await docRef.set({ state: payload, tier: state.tier, updated_at: new Date().toISOString() }, { merge: true });
+        }
 
         updateSyncIndicator("online");
       } catch (err) {
@@ -425,6 +497,7 @@ document.addEventListener("DOMContentLoaded", () => {
     state.userName = name;
     state.tagline = DEFAULT_TAGLINE;
     state.selectedCardId = "";
+    state.cardInvoices = {};
     updateProfileUI();
   }
 
@@ -473,6 +546,21 @@ document.addEventListener("DOMContentLoaded", () => {
     const lastDay = new Date(result.getFullYear(), result.getMonth() + 1, 0).getDate();
     result.setDate(Math.min(originalDay, lastDay));
     return result;
+  }
+
+  // Valor de cada parcela de uma compra parcelada (divisão arredondada em centavos)
+  function parcelValue(expense) {
+    return Math.round((expense.value / expense.installments) * 100) / 100;
+  }
+
+  // Gera um id único para despesa (evita colisão quando duas são criadas no mesmo milissegundo)
+  let expenseIdCounter = 0;
+  function uniqueExpenseId() {
+    let candidate;
+    do {
+      candidate = `exp-${Date.now()}-${++expenseIdCounter}`;
+    } while (state.expenses.some(e => e.id === candidate));
+    return candidate;
   }
 
   function getRecurringOccurrenceDates(recurringItem, month, year) {
@@ -554,7 +642,88 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     });
 
-    return [...realExpenses, ...virtualRecurring];
+    // 3. Processar parcelas de compras parceladas: cada mês exibe (e soma) apenas a sua parcela.
+    // A parcela 1 é a própria despesa base; as demais são linhas virtuais derivadas por mês.
+    const virtualInstallments = [];
+    state.expenses.filter(e => e.installments > 1).forEach(e => {
+      const baseDate = new Date(e.date + "T00:00:00");
+      if (Number.isNaN(baseDate.getTime())) return;
+      const pad = (v) => String(v).padStart(2, "0");
+      const toDateStr = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+      for (let i = 1; i < e.installments; i++) {
+        const occurrence = addMonthsKeepingDay(baseDate, i);
+        if (occurrence.getMonth() !== month || occurrence.getFullYear() !== year) continue;
+
+        const occurrenceDateStr = toDateStr(occurrence);
+        // Se a parcela deste mês já foi materializada (marcada paga/editada), não duplicar
+        const alreadyMaterialized = state.expenses.some(m => {
+          return m.parentInstallmentId === e.id && m.date === occurrenceDateStr;
+        });
+        if (alreadyMaterialized) continue;
+
+        virtualInstallments.push({
+          id: `virtual-inst-${e.id}-${occurrence.getFullYear()}-${occurrence.getMonth() + 1}-${occurrence.getDate()}`,
+          description: e.description,
+          value: parcelValue(e),
+          date: occurrenceDateStr,
+          cardId: e.cardId,
+          category: e.category,
+          status: (e.cardId && e.cardId.startsWith("card-")) ? "Comprometido" : "Pendentes",
+          installmentNo: i + 1,
+          installmentTotal: e.installments,
+          isVirtual: true,
+          parentInstallmentId: e.id
+        });
+      }
+    });
+
+    return [...realExpenses, ...virtualRecurring, ...virtualInstallments].map(e => ({
+      ...e,
+      // Despesa base parcelada: nunca somar o total, apenas o valor da parcela do mês
+      value: (e.status === "Pagas" && e.paidValue !== undefined) ? e.paidValue
+        : (e.installments > 1 ? parcelValue(e) : e.value)
+    }));
+  }
+
+  // Valor manual da fatura cadastrada para um cartão (null quando não há cadastro)
+  function getCardManualInvoice(cardId) {
+    const v = state.cardInvoices && state.cardInvoices[cardId];
+    if (v === undefined || v === null || v === "") return null;
+    return Number(v) || 0;
+  }
+
+  // Despesas do mês/ano com as faturas manuais aplicadas:
+  // as despesas de um cartão com fatura manual são substituídas pelo valor da fatura,
+  // evitando dupla contagem da mesma despesa na lista e na fatura.
+  function getMonthlyExpensesWithInvoices(month, year) {
+    const monthExpenses = getMonthlyExpenses(month, year);
+    const cardBuckets = {};
+    const result = [];
+
+    monthExpenses.forEach(e => {
+      if (!e.cardId) { result.push(e); return; }
+      if (!cardBuckets[e.cardId]) cardBuckets[e.cardId] = [];
+      cardBuckets[e.cardId].push(e);
+    });
+
+    Object.keys(cardBuckets).forEach(cardId => {
+      const manual = getCardManualInvoice(cardId);
+      const value = manual !== null ? manual : cardBuckets[cardId].reduce((s, e) => s + e.value, 0);
+      if (value > 0) {
+        result.push({
+          id: `invoice-card-${cardId}`,
+          description: "Fatura do cartão",
+          value,
+          date: `${year}-${String(month + 1).padStart(2, "0")}-01`,
+          cardId,
+          status: "Comprometido",
+          isInvoice: true
+        });
+      }
+    });
+
+    return result;
   }
 
   // Renderiza o relatório de despesas por categoria de forma dinâmica
@@ -593,6 +762,56 @@ document.addEventListener("DOMContentLoaded", () => {
       category: recItem.category,
       status: initialStatus,
       parentRecurringId: recItem.id
+    };
+
+    if (initialStatus === "Pagas") {
+      const today = new Date();
+      const yyyy = today.getFullYear();
+      const mm = String(today.getMonth() + 1).padStart(2, "0");
+      const dd = String(today.getDate()).padStart(2, "0");
+      newRealExpense.paymentDate = `${yyyy}-${mm}-${dd}`;
+    }
+
+    state.expenses.push(newRealExpense);
+    return newRealExpense;
+  }
+
+  // Transforma uma parcela virtual (futura) de uma compra parcelada em despesa real,
+  // permitindo marcá-la como paga ou editá-la pontualmente, como nas recorrentes.
+  function materializeVirtualInstallmentExpense(id, status) {
+    const baseExpense = state.expenses.find(e => e.installments > 1 && id.startsWith(`virtual-inst-${e.id}-`));
+    if (!baseExpense) return null;
+
+    const parts = id.split("-");
+    if (parts.length < 4 || !/^\d{4}$/.test(parts[parts.length - 3])) return null;
+
+    const targetYear = parseInt(parts[parts.length - 3]);
+    const targetMonthIndex = parseInt(parts[parts.length - 2]) - 1;
+    const targetDay = String(parseInt(parts[parts.length - 1])).padStart(2, "0");
+    const occurrenceDateStr = `${targetYear}-${String(targetMonthIndex + 1).padStart(2, "0")}-${targetDay}`;
+
+    const existingExpense = state.expenses.find(exp => {
+      return exp.parentInstallmentId === baseExpense.id && exp.date === occurrenceDateStr;
+    });
+    if (existingExpense) return existingExpense;
+
+    const baseDate = new Date(baseExpense.date + "T00:00:00");
+    const occurrenceDate = new Date(occurrenceDateStr + "T00:00:00");
+    const monthDiff = (occurrenceDate.getFullYear() - baseDate.getFullYear()) * 12
+      + (occurrenceDate.getMonth() - baseDate.getMonth());
+    const initialStatus = status || ((baseExpense.cardId && baseExpense.cardId.startsWith("card-")) ? "Comprometido" : "Pendentes");
+
+    const newRealExpense = {
+      id: `inst-instance-${baseExpense.id}-${occurrenceDateStr}`,
+      description: baseExpense.description,
+      value: parcelValue(baseExpense),
+      date: occurrenceDateStr,
+      cardId: baseExpense.cardId,
+      category: baseExpense.category,
+      status: initialStatus,
+      parentInstallmentId: baseExpense.id,
+      installmentNo: monthDiff + 1,
+      installmentTotal: baseExpense.installments
     };
 
     if (initialStatus === "Pagas") {
@@ -688,12 +907,11 @@ document.addEventListener("DOMContentLoaded", () => {
       });
       const totalRevenues = monthRevenues.reduce((sum, r) => sum + r.value, 0);
 
-      // Despesas do mês m e ano selecionado
-      const monthExpenses = getMonthlyExpenses(m, selectedReportYear);
-      const totalExpenses = monthExpenses.reduce((sum, e) => sum + e.value, 0);
+      // Despesas do mês m e ano selecionado (com faturas manuais aplicadas para evitar dupla contagem)
+      const totalExpenses = getMonthlyExpensesWithInvoices(m, selectedReportYear).reduce((sum, e) => sum + e.value, 0);
 
       const netFlow = totalRevenues - totalExpenses;
-      
+
       annualIncome += totalRevenues;
       annualExpense += totalExpenses;
 
@@ -873,8 +1091,7 @@ document.addEventListener("DOMContentLoaded", () => {
       });
       const totalRevenues = monthRevenues.reduce((sum, r) => sum + r.value, 0);
 
-      const monthExpenses = getMonthlyExpenses(m, selectedReportYear);
-      const totalExpenses = monthExpenses.reduce((sum, e) => sum + e.value, 0);
+      const totalExpenses = getMonthlyExpensesWithInvoices(m, selectedReportYear).reduce((sum, e) => sum + e.value, 0);
       const netFlow = totalRevenues - totalExpenses;
 
       csvContent += `${monthNames[m]} / ${selectedReportYear};${totalRevenues.toFixed(2).replace(".", ",")};${totalExpenses.toFixed(2).replace(".", ",")};${netFlow.toFixed(2).replace(".", ",")}\r\n`;
@@ -896,16 +1113,19 @@ document.addEventListener("DOMContentLoaded", () => {
       return d.getMonth() === state.selectedMonth && d.getFullYear() === state.selectedYear;
     });
 
+    // Despesa conta separadamente quando não é de cartão, ou quando o cartão não tem fatura manual
+    const countsSeparately = e => !e.cardId || getCardManualInvoice(e.cardId) === null;
+
     const totalRevenues = monthRevenues.reduce((sum, r) => sum + r.value, 0);
-    const totalExpenses = monthExpenses.reduce((sum, e) => sum + e.value, 0);
+    const totalExpenses = getMonthlyExpensesWithInvoices(state.selectedMonth, state.selectedYear).reduce((sum, e) => sum + e.value, 0);
     const pendingExpenses = monthExpenses
-      .filter(e => e.status === "Pendentes" || e.status === "Comprometido")
+      .filter(e => countsSeparately(e) && (e.status === "Pendentes" || e.status === "Comprometido"))
       .reduce((sum, e) => sum + e.value, 0);
     const pendingRevenues = monthRevenues
       .filter(r => r.category === "Pendente")
       .reduce((sum, r) => sum + r.value, 0);
     const paidExpenses = monthExpenses
-      .filter(e => e.status === "Pagas")
+      .filter(e => countsSeparately(e) && e.status === "Pagas")
       .reduce((sum, e) => sum + e.value, 0);
 
     const netFlow = totalRevenues - totalExpenses;
@@ -1033,18 +1253,34 @@ document.addEventListener("DOMContentLoaded", () => {
       return d.getMonth() === month && d.getFullYear() === year;
     });
 
-    // 1. Total Despesas (inclui pagas, pendentes e comprometidas)
-    const totalExpenses = currentMonthExpenses.reduce((sum, e) => sum + e.value, 0);
+    // Separa as despesas do mês entre normais (sem cartão) e vinculadas a cartões
+    const nonCardExpenses = currentMonthExpenses.filter(e => !e.cardId);
+    const cardExpensesByCard = {};
+    currentMonthExpenses.forEach(e => {
+      if (!e.cardId) return;
+      if (!cardExpensesByCard[e.cardId]) cardExpensesByCard[e.cardId] = [];
+      cardExpensesByCard[e.cardId].push(e);
+    });
 
-    // 2. Pagas (Líquido)
-    const paidExpenses = currentMonthExpenses
-      .filter(e => e.status === "Pagas")
-      .reduce((sum, e) => sum + e.value, 0);
+    // 1. Total Despesas: despesas normais + contribuição de cada cartão.
+    //    Cartão com fatura manual usa o valor da fatura (não duplica as despesas do cartão).
+    const totalExpenses = getMonthlyExpensesWithInvoices(month, year).reduce((sum, e) => sum + e.value, 0);
 
-    // 3. Pendentes
-    const pendingExpenses = currentMonthExpenses
-      .filter(e => e.status === "Pendentes")
-      .reduce((sum, e) => sum + e.value, 0);
+    // 2. Pagas (Líquido): despesas normais pagas + despesas de cartões SEM fatura manual
+    const paidExpenses =
+      nonCardExpenses.filter(e => e.status === "Pagas").reduce((sum, e) => sum + e.value, 0) +
+      state.cards.reduce((sum, c) => {
+        if (getCardManualInvoice(c.id) !== null) return sum;
+        return sum + (cardExpensesByCard[c.id] || []).filter(e => e.status === "Pagas").reduce((s, e) => s + e.value, 0);
+      }, 0);
+
+    // 3. Pendentes: despesas normais pendentes + despesas de cartões SEM fatura manual
+    const pendingExpenses =
+      nonCardExpenses.filter(e => e.status === "Pendentes").reduce((sum, e) => sum + e.value, 0) +
+      state.cards.reduce((sum, c) => {
+        if (getCardManualInvoice(c.id) !== null) return sum;
+        return sum + (cardExpensesByCard[c.id] || []).filter(e => e.status === "Pendentes").reduce((s, e) => s + e.value, 0);
+      }, 0);
 
     // 4. Receitas totais e contagens
     const totalRevenues = currentMonthRevenues.reduce((sum, r) => sum + r.value, 0);
@@ -1055,18 +1291,20 @@ document.addEventListener("DOMContentLoaded", () => {
     const activeCard = state.cards.find(c => c.id === state.selectedCardId) || state.cards[0];
     const totalLimit = activeCard ? activeCard.limit : 0;
 
-    // Calcular valores específicos da fatura do cartão ativo
+    // 5.1. Fatura do cartão ativo: valor manual quando cadastrado, senão despesas "Pagas" do cartão
     const activeCardExpenses = currentMonthExpenses.filter(e => {
       return e.cardId === (activeCard ? activeCard.id : "");
     });
 
-    const activeCardFatura = activeCardExpenses
-      .filter(e => e.status === "Pagas")
-      .reduce((sum, e) => sum + e.value, 0);
+    const activeCardManualInvoice = activeCard ? getCardManualInvoice(activeCard.id) : null;
 
-    const activeCardComprometido = activeCardExpenses
-      .filter(e => e.status === "Comprometido")
-      .reduce((sum, e) => sum + e.value, 0);
+    const activeCardFatura = activeCardManualInvoice !== null
+      ? activeCardManualInvoice
+      : activeCardExpenses.filter(e => e.status === "Pagas").reduce((sum, e) => sum + e.value, 0);
+
+    const activeCardComprometido = activeCardManualInvoice !== null
+      ? 0 // já está incluída no valor manual da fatura
+      : activeCardExpenses.filter(e => e.status === "Comprometido").reduce((sum, e) => sum + e.value, 0);
 
     const activeCardDisp = totalLimit - activeCardFatura - activeCardComprometido;
 
@@ -1122,6 +1360,14 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("cards-count").innerText = state.cards.length.toString();
 
     const { activeCard, totalLimit, activeCardFatura, activeCardComprometido, activeCardDisp } = cardMetrics;
+
+    // Valor manual da fatura cadastrada para o cartão ativo (null = não cadastrado)
+    const activeCardManualInvoice = (() => {
+      if (!activeCard) return null;
+      const v = state.cardInvoices && state.cardInvoices[activeCard.id];
+      if (v === undefined || v === null || v === "") return null;
+      return Number(v) || 0;
+    })();
 
     if (!activeCard) return;
 
@@ -1214,6 +1460,22 @@ document.addEventListener("DOMContentLoaded", () => {
           </div>
         </div>
       </div>
+
+      <!-- Cadastro manual do valor da fatura (substitui a soma das despesas vinculadas ao cartão) -->
+      <div class="invoice-manual-box" style="margin-top: 0.9rem; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 12px; padding: 0.85rem 0.9rem;">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.5rem;">
+          <span style="font-size: 0.76rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;">💳 Valor da fatura</span>
+          <span id="manual-invoice-status" style="font-size: 0.72rem; color: #16a34a; display: none;"></span>
+        </div>
+        <div style="display: flex; gap: 0.45rem; align-items: center;">
+          <input id="manual-invoice-input" type="number" step="0.01" min="0" placeholder="Ex.: 250,00"
+            value="${activeCardManualInvoice === null ? "" : activeCardManualInvoice}"
+            style="flex: 1; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 8px; padding: 0.5rem 0.7rem; font-family: var(--font-sans); font-size: 0.85rem; color: var(--text-primary, #1f2937); min-width: 0;">
+          <button id="save-manual-invoice-btn" style="background: ${activeCard.color}; color: #fff; border: none; border-radius: 8px; padding: 0.5rem 0.75rem; font-family: var(--font-sans); font-size: 0.78rem; font-weight: 700; cursor: pointer; white-space: nowrap; transition: var(--transition-fast);">Salvar fatura</button>
+          <button id="clear-manual-invoice-btn" title="Limpar fatura manual" ${activeCardManualInvoice === null ? 'style="display:none;"' : 'style="background: transparent; color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 8px; width: 34px; height: 34px; cursor: pointer; font-size: 0.85rem; line-height: 1;"'}>✕</button>
+        </div>
+        <small style="display: block; margin-top: 0.45rem; line-height: 1.35; color: var(--text-muted); font-size: 0.72rem;">As despesas vinculadas a este cartão entram pelo valor acima, evitando dupla contagem. Deixe vazio para somar automaticamente as despesas do cartão.</small>
+      </div>
     `;
 
     container.innerHTML = cardHTML;
@@ -1262,6 +1524,11 @@ document.addEventListener("DOMContentLoaded", () => {
           // Excluir do array
           state.cards = state.cards.filter(c => c.id !== cardId);
 
+          // Remover fatura manual cadastrada para o cartão excluído
+          if (state.cardInvoices) {
+            delete state.cardInvoices[cardId];
+          }
+
           // Se excluiu o ativo, mudar o foco
           if (state.selectedCardId === cardId) {
             state.selectedCardId = state.cards.length > 0 ? state.cards[0].id : "";
@@ -1281,107 +1548,60 @@ document.addEventListener("DOMContentLoaded", () => {
         updateAllDashboard();
       });
     });
+
+    // ── Cadastro manual do valor da fatura ──
+    const manualInvoiceInput = document.getElementById("manual-invoice-input");
+    const saveInvoiceBtn = document.getElementById("save-manual-invoice-btn");
+    const clearInvoiceBtn = document.getElementById("clear-manual-invoice-btn");
+    const invoiceStatus = document.getElementById("manual-invoice-status");
+
+    const flashInvoiceSaved = () => {
+      if (!invoiceStatus) return;
+      invoiceStatus.innerText = "Fatura salva ✔";
+      invoiceStatus.style.display = "inline";
+      clearTimeout(invoiceStatus._saveTimer);
+      invoiceStatus._saveTimer = setTimeout(() => { if (invoiceStatus) invoiceStatus.style.display = "none"; }, 2200);
+    };
+
+    const saveManualInvoice = () => {
+      const raw = manualInvoiceInput ? manualInvoiceInput.value.trim() : "";
+      if (raw === "") {
+        // Entrada vazia = sem fatura manual (volta a somar automaticamente as despesas do cartão)
+        delete state.cardInvoices[activeCard.id];
+      } else {
+        const parsed = parseFloat(raw.replace(",", "."));
+        if (isNaN(parsed) || parsed < 0) {
+          if (manualInvoiceInput) manualInvoiceInput.value = "";
+          return;
+        }
+        state.cardInvoices[activeCard.id] = parsed;
+      }
+      saveState();
+      flashInvoiceSaved();
+      updateAllDashboard();
+    };
+
+    if (saveInvoiceBtn) saveInvoiceBtn.addEventListener("click", saveManualInvoice);
+    if (manualInvoiceInput) {
+      manualInvoiceInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") saveManualInvoice();
+      });
+    }
+    if (clearInvoiceBtn) {
+      clearInvoiceBtn.addEventListener("click", () => {
+        if (manualInvoiceInput) manualInvoiceInput.value = "";
+        delete state.cardInvoices[activeCard.id];
+        saveState();
+        updateAllDashboard();
+      });
+    }
   }
 
   // ==========================================================================
   // 6b. RENDERIZADOR DE CONTAS BANCÁRIAS DINÂMICAS
   // ==========================================================================
   function renderBankAccounts() {
-    const container = document.getElementById("bank-accounts-container");
-    if (!container) return;
-
-    if (state.accounts.length === 0) {
-      container.innerHTML = `
-        <div class="empty-state-container" style="grid-column: 1 / -1; padding: 3rem 1rem; text-align: center; width: 100%;">
-          <div class="empty-illustration" style="width: 50px; height: 50px; opacity: 0.3; margin: 0 auto 1rem;">${ICONS.walletFilled}</div>
-          <p style="color: var(--text-muted); font-size: 0.95rem;">Nenhuma conta bancária vinculada.</p>
-        </div>`;
-      return;
-    }
-
-    let accountsHTML = "";
-    state.accounts.forEach(acc => {
-      accountsHTML += `
-        <div class="glass-effect" style="padding: 1.5rem; background: ${acc.color}; color: white; display: flex; flex-direction: column; gap: 1.5rem; box-shadow: 0 10px 20px ${acc.shadow || 'rgba(0,0,0,0.1)'}; position: relative; overflow: hidden; border-radius: var(--radius-lg); transition: var(--transition);" id="acc-card-${acc.id}">
-          <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-            <div>
-              <span style="font-size: 0.65rem; font-weight: 800; letter-spacing: 1px; opacity: 0.85;">${acc.type.toUpperCase()}</span>
-              <h4 style="font-size: 1.2rem; font-weight: 700; margin-top: 0.1rem;">${acc.name}</h4>
-            </div>
-            <div style="display: flex; align-items: center; gap: 0.5rem;">
-              <button class="edit-account-btn" data-id="${acc.id}" title="Editar esta conta" style="background: rgba(255, 255, 255, 0.15); border: none; border-radius: 6px; color: rgba(255, 255, 255, 0.85); cursor: pointer; display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0.35rem; transition: var(--transition-fast);">
-                ${ICONS.edit}
-              </button>
-              <button class="delete-account-btn" data-id="${acc.id}" title="Excluir esta conta" style="background: rgba(255, 255, 255, 0.15); border: none; border-radius: 6px; color: rgba(255, 255, 255, 0.85); cursor: pointer; display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0.35rem; transition: var(--transition-fast);">
-                ${ICONS.trash}
-              </button>
-              <span style="font-size: 1.35rem; font-weight: 800; margin-left: 0.25rem;">${acc.logo}</span>
-            </div>
-          </div>
-          <div>
-            <span style="font-size: 0.68rem; opacity: 0.85;">Saldo Disponível</span>
-            <div style="font-size: 1.75rem; font-weight: 800; letter-spacing: -0.5px;">${formatCurrency(acc.balance)}</div>
-          </div>
-          <div style="border-top: 1px solid rgba(255,255,255,0.15); padding-top: 0.5rem; font-size: 0.72rem; display: flex; justify-content: space-between; opacity: 0.8;">
-            <span>${acc.agency}</span>
-            <span>${acc.accountNumber}</span>
-          </div>
-        </div>
-      `;
-    });
-
-    container.innerHTML = accountsHTML;
-
-    // Adicionar eventos para excluir conta
-    container.querySelectorAll(".delete-account-btn").forEach(btn => {
-      btn.addEventListener("click", async (e) => {
-        e.stopPropagation();
-        const id = btn.getAttribute("data-id");
-        const account = state.accounts.find(a => a.id === id);
-        const accountName = account ? account.name : "esta conta";
-
-        if (await window.customConfirm(`Tem certeza que deseja excluir a conta "${accountName}"?`)) {
-          const card = document.getElementById(`acc-card-${id}`);
-          if (card) {
-            card.style.opacity = "0";
-            card.style.transform = "scale(0.9) translateY(10px)";
-            setTimeout(() => {
-              state.accounts = state.accounts.filter(a => a.id !== id);
-              saveState();
-              updateAllDashboard();
-            }, 300);
-          } else {
-            state.accounts = state.accounts.filter(a => a.id !== id);
-            saveState();
-            updateAllDashboard();
-          }
-        }
-      });
-    });
-
-    // Adicionar eventos para editar conta
-    container.querySelectorAll(".edit-account-btn").forEach(btn => {
-      btn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        const id = btn.getAttribute("data-id");
-        const account = state.accounts.find(a => a.id === id);
-        if (account) {
-          document.getElementById("acc-id").value = account.id;
-          document.getElementById("acc-name").value = account.name;
-          document.getElementById("acc-type").value = account.type;
-          document.getElementById("acc-logo").value = account.logo;
-          document.getElementById("acc-balance").value = account.balance;
-          document.getElementById("acc-agency").value = account.agency;
-          document.getElementById("acc-number").value = account.accountNumber;
-          document.getElementById("acc-color").value = account.color;
-
-          document.getElementById("modal-conta-title").innerText = "Editar Conta Bancária";
-
-          const modal = document.getElementById("modal-conta-dialog");
-          if (modal) modal.showModal();
-        }
-      });
-    });
+    // Desativado: aba de contas bancarias foi removida do sistema
   }
 
   // ==========================================================================
@@ -1972,9 +2192,16 @@ document.addEventListener("DOMContentLoaded", () => {
           dateHTML += `<div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 500; margin-top: 0.15rem; white-space: nowrap;">Pago em: ${formatDateBR(e.paymentDate)}</div>`;
         }
 
+        // Badge de parcela sob a descrição das compras parceladas
+        const instTotal = e.installmentTotal || e.installments || 0;
+        const instNo = e.installmentNo || 1;
+        const instBadge = instTotal > 1
+          ? `<div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600; margin-top: 0.15rem;">Parcela ${instNo}/${instTotal}</div>`
+          : "";
+
         tbodyHTML += `
           <tr id="row-exp-${e.id}">
-            <td>${e.description}</td>
+            <td>${e.description}${instBadge}</td>
             <td>${dateHTML}</td>
             <td>
               <span class="card-mini-tag" style="background: ${cardColor}; color: ${cardText}; padding: 0.2rem 0.6rem; border-radius: 4px; font-size: 0.72rem; font-weight: 700; border: 1px solid rgba(255,255,255,0.05);">
@@ -1985,7 +2212,11 @@ document.addEventListener("DOMContentLoaded", () => {
             <td>
               <span class="badge-status ${statusClass}">${statusLabel}</span>
             </td>
-            <td class="text-danger" style="font-weight: 700;">${formatCurrency(e.value)}</td>
+            <td class="text-danger" style="font-weight: 700;">
+              ${(e.status === "Pagas" && e.paidValue !== undefined && e.paidValue !== e.value) 
+                ? `<span style="text-decoration: line-through; opacity: 0.5; font-size: 0.8rem; display: block; font-weight: normal;">${formatCurrency(e.value)}</span>` + formatCurrency(e.paidValue) 
+                : formatCurrency(e.value)}
+            </td>
             <td class="text-right">
               <div class="row-actions">
                 <button class="table-action-btn toggle-pay" data-id="${e.id}" title="Alternar Pago/Pendente">
@@ -2164,6 +2395,27 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
           }
 
+          if (id.startsWith("virtual-inst-")) {
+            const instBase = state.expenses.find(e => e.installments > 1 && id.startsWith(`virtual-inst-${e.id}-`));
+            if (instBase) {
+              if (await window.customConfirm(`Deseja excluir a compra parcelada "${instBase.description}" (${instBase.installments}x) e todas as suas parcelas?`)) {
+                const removeAllInstallments = () => {
+                  state.expenses = state.expenses.filter(x => x.id !== instBase.id && x.parentInstallmentId !== instBase.id);
+                  saveState();
+                  updateAllDashboard();
+                };
+                if (row) {
+                  row.style.opacity = "0";
+                  row.style.transform = "translateX(20px)";
+                  setTimeout(removeAllInstallments, 300);
+                } else {
+                  removeAllInstallments();
+                }
+              }
+            }
+            return;
+          }
+
           const expense = state.expenses.find(exp => exp.id === id);
           if (expense && expense.parentRecurringId) {
             const recItem = state.recurring.find(r => r.id === expense.parentRecurringId);
@@ -2193,6 +2445,58 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
           }
 
+          if (expense && expense.parentInstallmentId) {
+            const instBase = state.expenses.find(b => b.id === expense.parentInstallmentId);
+            const instName = instBase ? instBase.description : "compra parcelada";
+            const removeAllInstallments = () => {
+              state.expenses = state.expenses.filter(x => x.id !== expense.parentInstallmentId && x.parentInstallmentId !== expense.parentInstallmentId);
+              saveState();
+              updateAllDashboard();
+            };
+            const removeThisInstallment = () => {
+              state.expenses = state.expenses.filter(x => x.id !== expense.id);
+              saveState();
+              updateAllDashboard();
+            };
+            if (await window.customConfirm(`Esta despesa é uma parcela de "${instName}".\nDeseja excluir a compra parcelada inteira e todas as suas parcelas? (Se escolher Cancelar, excluirá apenas esta parcela de ${formatDateBR(expense.date)})`)) {
+              if (row) {
+                row.style.opacity = "0";
+                row.style.transform = "translateX(20px)";
+                setTimeout(removeAllInstallments, 300);
+              } else {
+                removeAllInstallments();
+              }
+            } else {
+              if (row) {
+                row.style.opacity = "0";
+                row.style.transform = "translateX(20px)";
+                setTimeout(removeThisInstallment, 300);
+              } else {
+                removeThisInstallment();
+              }
+            }
+            return;
+          }
+
+          if (expense && expense.installments > 1) {
+            // Despesa base de uma compra parcelada: excluir remove todas as parcelas
+            if (await window.customConfirm(`Deseja excluir a compra parcelada "${expense.description}" (${expense.installments}x) e todas as suas parcelas?`)) {
+              const removeAllInstallments = () => {
+                state.expenses = state.expenses.filter(x => x.id !== expense.id && x.parentInstallmentId !== expense.id);
+                saveState();
+                updateAllDashboard();
+              };
+              if (row) {
+                row.style.opacity = "0";
+                row.style.transform = "translateX(20px)";
+                setTimeout(removeAllInstallments, 300);
+              } else {
+                removeAllInstallments();
+              }
+            }
+            return;
+          }
+
           if (row) {
             row.style.opacity = "0";
             row.style.transform = "translateX(20px)";
@@ -2210,10 +2514,13 @@ document.addEventListener("DOMContentLoaded", () => {
         btn.addEventListener("click", () => {
           const id = btn.getAttribute("data-id");
           let expense = state.expenses.find(exp => exp.id === id);
-          
+
           if (!expense && id.startsWith("virtual-rec-")) {
             // Materializar a despesa recorrente virtual para esta data específica
             expense = materializeVirtualRecurringExpense(id, "Pagas");
+          } else if (!expense && id.startsWith("virtual-inst-")) {
+            // Materializar a parcela virtual para esta data específica
+            expense = materializeVirtualInstallmentExpense(id, "Pagas");
           } else if (expense) {
             if (expense.status === "Pagas") {
               expense.status = "Pendentes";
@@ -2240,10 +2547,14 @@ document.addEventListener("DOMContentLoaded", () => {
         btn.addEventListener("click", () => {
           const id = btn.getAttribute("data-id");
           let exp = state.expenses.find(e => e.id === id);
-          
+
           if (!exp && id.startsWith("virtual-rec-")) {
             // Materializar a despesa recorrente virtual para esta data específica
             exp = materializeVirtualRecurringExpense(id);
+            if (exp) saveState();
+          } else if (!exp && id.startsWith("virtual-inst-")) {
+            // Materializar a parcela virtual para esta data específica
+            exp = materializeVirtualInstallmentExpense(id);
             if (exp) saveState();
           }
 
@@ -2256,15 +2567,28 @@ document.addEventListener("DOMContentLoaded", () => {
             document.getElementById("exp-category").value = exp.category || "🍔 Alimentação";
             document.getElementById("exp-status").value = exp.status || "Pendentes";
 
+            const installmentsSelect = document.getElementById("exp-installments");
+            if (installmentsSelect) {
+              // Parcelas materializadas são edições pontuais: manter como "À vista" para não re-parcelar
+              installmentsSelect.value = exp.parentInstallmentId ? "1" : (String(exp.installments || 1));
+            }
+            syncInstallmentsField();
+
             const payDateGroup = document.getElementById("group-exp-pay-date");
             const payDateInput = document.getElementById("exp-pay-date");
-
+            const paidValGroup = document.getElementById("group-exp-paid-val");
+            const paidValInput = document.getElementById("exp-paid-val");
+ 
             if (exp.status === "Pagas") {
               if (payDateGroup) payDateGroup.style.display = "flex";
               if (payDateInput) payDateInput.value = exp.paymentDate || exp.date;
+              if (paidValGroup) paidValGroup.style.display = "flex";
+              if (paidValInput) paidValInput.value = exp.paidValue !== undefined ? exp.paidValue : exp.value;
             } else {
               if (payDateGroup) payDateGroup.style.display = "none";
               if (payDateInput) payDateInput.value = "";
+              if (paidValGroup) paidValGroup.style.display = "none";
+              if (paidValInput) paidValInput.value = "";
             }
 
             document.getElementById("modal-despesa-title").innerText = "Editar Despesa";
@@ -2465,7 +2789,10 @@ document.addEventListener("DOMContentLoaded", () => {
       optionsHTML += `<option value="${c.id}">💳 ${c.name} (${c.digits})</option>`;
     });
     
-    if (cardSelect) cardSelect.innerHTML = optionsHTML;
+    if (cardSelect) {
+      cardSelect.innerHTML = optionsHTML;
+      syncInstallmentsField();
+    }
     if (recCardSelect) recCardSelect.innerHTML = optionsHTML;
   }
 
@@ -2506,10 +2833,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (selectMonth && selectYear) {
     selectMonth.addEventListener("change", () => {
+      selectMonth.dataset.userSet = "true";
       state.selectedMonth = parseInt(selectMonth.value);
       updateAllDashboard();
     });
     selectYear.addEventListener("change", () => {
+      selectYear.dataset.userSet = "true";
       state.selectedYear = parseInt(selectYear.value);
       updateAllDashboard();
     });
@@ -2518,6 +2847,8 @@ document.addEventListener("DOMContentLoaded", () => {
   // Caixa de Busca
   const searchInput = document.getElementById("search-transactions");
   if (searchInput) {
+    searchInput.value = ""; // Garantir que inicia limpo para ignorar autofill do navegador
+    state.searchQuery = "";
     searchInput.addEventListener("input", (e) => {
       state.searchQuery = e.target.value;
       renderTransactions();
@@ -2790,11 +3121,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const closeReceita = document.getElementById("close-modal-receita");
   const cancelReceita = document.getElementById("btn-cancelar-receita");
 
-  // Elementos do Modal de Conta
-  const modalConta = document.getElementById("modal-conta-dialog");
-  const btnNovaConta = document.getElementById("btn-nova-conta");
-  const closeConta = document.getElementById("close-modal-conta");
-  const cancelConta = document.getElementById("btn-cancelar-conta");
+
 
   // Elementos do Modal de Recorrente
   const modalRecorrente = document.getElementById("modal-recorrente-dialog");
@@ -2866,7 +3193,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setupModal(btnNovaOS, modalOS, closeOS, cancelOS, "form-nova-os");
   setupModal(btnNovoCartao, modalCartao, closeCartao, cancelCartao, "form-novo-cartao");
   setupModal(btnNovaReceita, modalReceita, closeReceita, cancelReceita, "form-nova-receita");
-  setupModal(btnNovaConta, modalConta, closeConta, cancelConta, "form-nova-conta");
+
   setupModal(btnNovoRecorrente, modalRecorrente, closeRecorrente, cancelRecorrente, "form-novo-recorrente");
   setupModal(btnNovoObjetivo, modalMeta, closeMeta, cancelMeta, "form-nova-meta");
 
@@ -2997,8 +3324,16 @@ document.addEventListener("DOMContentLoaded", () => {
       document.getElementById("exp-id").value = "";
       const payDateGroup = document.getElementById("group-exp-pay-date");
       const payDateInput = document.getElementById("exp-pay-date");
+      const paidValGroup = document.getElementById("group-exp-paid-val");
+      const paidValInput = document.getElementById("exp-paid-val");
       if (payDateGroup) payDateGroup.style.display = "none";
       if (payDateInput) payDateInput.value = "";
+      if (paidValGroup) paidValGroup.style.display = "none";
+      if (paidValInput) paidValInput.value = "";
+
+      const installmentsSelect = document.getElementById("exp-installments");
+      if (installmentsSelect) installmentsSelect.value = "1";
+      syncInstallmentsField();
     });
   }
 
@@ -3006,10 +3341,13 @@ document.addEventListener("DOMContentLoaded", () => {
   const expStatusSelect = document.getElementById("exp-status");
   const expPayDateGroup = document.getElementById("group-exp-pay-date");
   const expPayDateInput = document.getElementById("exp-pay-date");
+  const expPaidValGroup = document.getElementById("group-exp-paid-val");
+  const expPaidValInput = document.getElementById("exp-paid-val");
   if (expStatusSelect && expPayDateGroup) {
     expStatusSelect.addEventListener("change", () => {
       if (expStatusSelect.value === "Pagas") {
         expPayDateGroup.style.display = "flex";
+        if (expPaidValGroup) expPaidValGroup.style.display = "flex";
         if (!expPayDateInput.value) {
           const today = new Date();
           const yyyy = today.getFullYear();
@@ -3017,11 +3355,49 @@ document.addEventListener("DOMContentLoaded", () => {
           const dd = String(today.getDate()).padStart(2, "0");
           expPayDateInput.value = `${yyyy}-${mm}-${dd}`;
         }
+        if (expPaidValInput && !expPaidValInput.value) {
+          const originalVal = document.getElementById("exp-val").value;
+          expPaidValInput.value = originalVal;
+        }
       } else {
         expPayDateGroup.style.display = "none";
+        if (expPaidValGroup) expPaidValGroup.style.display = "none";
       }
     });
   }
+
+  // Parcelamento no cartão: mostra o campo apenas quando a forma de pagamento é cartão de crédito
+  // e exibe o valor da parcela conforme o valor total e o nº de parcelas escolhidos
+  function syncInstallmentsField() {
+    const cardSelect = document.getElementById("exp-card");
+    const group = document.getElementById("group-exp-installments");
+    const select = document.getElementById("exp-installments");
+    const hint = document.getElementById("exp-installment-hint");
+    if (!cardSelect || !group || !select) return;
+    const isCard = cardSelect.value.startsWith("card-");
+    group.style.display = isCard ? "flex" : "none";
+    if (!hint) return;
+
+    const n = parseInt(select.value, 10) || 1;
+    const valInput = document.getElementById("exp-val");
+    const total = parseFloat(valInput ? valInput.value : NaN);
+    if (isCard && n > 1 && !isNaN(total) && total > 0) {
+      const parcel = Math.round((total / n) * 100) / 100;
+      hint.textContent = `Parcelado em ${n}x de ${formatCurrency(parcel)} = ${formatCurrency(total)}`;
+      hint.style.display = "block";
+    } else {
+      hint.style.display = "none";
+    }
+  }
+
+  const expCardSelect = document.getElementById("exp-card");
+  if (expCardSelect) expCardSelect.addEventListener("change", syncInstallmentsField);
+
+  const expValInput = document.getElementById("exp-val");
+  if (expValInput) expValInput.addEventListener("input", syncInstallmentsField);
+
+  const expInstallmentsSelect = document.getElementById("exp-installments");
+  if (expInstallmentsSelect) expInstallmentsSelect.addEventListener("change", syncInstallmentsField);
 
   if (btnNovaOS) {
     btnNovaOS.addEventListener("click", () => {
@@ -3094,36 +3470,85 @@ document.addEventListener("DOMContentLoaded", () => {
       const cardId = document.getElementById("exp-card").value;
       const category = document.getElementById("exp-category").value;
       const status = document.getElementById("exp-status").value;
-      const paymentDate = status === "Pagas" ? document.getElementById("exp-pay-date").value : "";
+      const installments = parseInt(document.getElementById("exp-installments").value, 10) || 1;
+      // Compra parcelada no cartão pertence sempre à fatura: normaliza para "Comprometido"
+      // (a menos que o usuário tenha marcado explicitamente como paga)
+      const finalStatus = installments > 1 ? (status === "Pagas" ? "Pagas" : "Comprometido") : status;
+      const paymentDate = finalStatus === "Pagas" ? document.getElementById("exp-pay-date").value : "";
+
+      const rawPaidVal = document.getElementById("exp-paid-val").value;
+      const paidValue = (finalStatus === "Pagas" && rawPaidVal !== "") ? parseFloat(rawPaidVal) : undefined;
 
       if (id) {
         const exp = state.expenses.find(e => e.id === id);
         if (exp) {
+          const isMaterializedParcel = !!exp.parentInstallmentId;
           exp.description = description;
           exp.value = value;
           exp.date = date;
           exp.cardId = cardId;
           exp.category = category;
-          exp.status = status;
+          exp.status = finalStatus;
           exp.paymentDate = paymentDate;
+          exp.paidValue = paidValue;
+
+          if (!isMaterializedParcel) {
+            if (installments > 1) {
+              exp.installments = installments;
+              exp.installmentTotal = installments;
+              exp.installmentNo = exp.installmentNo || 1;
+              // Sincronizar parcelas materializadas e remover as que saíram do novo período
+              const pv = parcelValue(exp);
+              const baseD = new Date(date + "T00:00:00");
+              state.expenses.filter(x => x.parentInstallmentId === exp.id).forEach(child => {
+                const childD = new Date(child.date + "T00:00:00");
+                const diff = (childD.getFullYear() - baseD.getFullYear()) * 12 + (childD.getMonth() - baseD.getMonth());
+                if (diff > 0 && diff < installments) {
+                  child.description = exp.description;
+                  child.category = exp.category;
+                  child.value = pv;
+                  child.installmentTotal = installments;
+                }
+              });
+              state.expenses = state.expenses.filter(x => {
+                if (x.parentInstallmentId !== exp.id) return true;
+                const childD = new Date(x.date + "T00:00:00");
+                const diff = (childD.getFullYear() - baseD.getFullYear()) * 12 + (childD.getMonth() - baseD.getMonth());
+                return diff > 0 && diff < installments;
+              });
+            } else {
+              // Vira à vista: remove metadados de parcelamento e as parcelas materializadas
+              delete exp.installments;
+              delete exp.installmentNo;
+              delete exp.installmentTotal;
+              state.expenses = state.expenses.filter(x => x.parentInstallmentId !== exp.id);
+            }
+          }
         }
       } else {
         const newExpense = {
-          id: "exp-" + Date.now(),
+          id: uniqueExpenseId(),
           description,
           value,
           date,
           cardId,
           category,
-          status,
-          paymentDate
+          status: finalStatus,
+          paymentDate,
+          paidValue
         };
+        if (installments > 1) {
+          newExpense.installments = installments;
+          newExpense.installmentNo = 1;
+          newExpense.installmentTotal = installments;
+        }
         state.expenses.push(newExpense);
       }
       saveState();
       updateAllDashboard();
-      
+
       formDespesa.reset();
+      syncInstallmentsField();
       modalDespesa.close();
     });
   }
@@ -3258,69 +3683,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // 5. Cadastrar/Editar Conta Bancária
-  const formConta = document.getElementById("form-nova-conta");
-  if (formConta) {
-    formConta.addEventListener("submit", (e) => {
-      e.preventDefault();
 
-      const id = document.getElementById("acc-id").value;
-      if (!id && state.tier !== "premium" && state.accounts.length >= 1) {
-        showUpgradeModal("Limite do Plano Gratuito atingido! No plano gratuito você pode cadastrar apenas 1 conta bancária.");
-        return;
-      }
-
-      const name = document.getElementById("acc-name").value;
-      const type = document.getElementById("acc-type").value;
-      const logo = document.getElementById("acc-logo").value;
-      const balance = parseFloat(document.getElementById("acc-balance").value);
-      const agency = document.getElementById("acc-agency").value;
-      const accountNumber = document.getElementById("acc-number").value;
-      const color = document.getElementById("acc-color").value;
-
-      // Mapear sombras baseadas na cor/gradiente para ficar com efeito premium
-      let shadow = "rgba(0, 0, 0, 0.15)";
-      if (color.includes("#830ad1")) shadow = "rgba(131, 10, 209, 0.2)";
-      else if (color.includes("#ec8b16")) shadow = "rgba(236, 139, 22, 0.25)";
-      else if (color.includes("#0d9488")) shadow = "rgba(13, 148, 136, 0.2)";
-      else if (color.includes("#3b82f6")) shadow = "rgba(59, 130, 246, 0.2)";
-      else if (color.includes("#334155")) shadow = "rgba(51, 65, 85, 0.2)";
-      else if (color.includes("#f43f5e")) shadow = "rgba(244, 63, 94, 0.2)";
-
-      if (id) {
-        const acc = state.accounts.find(a => a.id === id);
-        if (acc) {
-          acc.name = name;
-          acc.type = type;
-          acc.logo = logo;
-          acc.balance = balance;
-          acc.agency = agency;
-          acc.accountNumber = accountNumber;
-          acc.color = color;
-          acc.shadow = shadow;
-        }
-      } else {
-        const newAccount = {
-          id: "acc-" + Date.now(),
-          name,
-          type,
-          logo,
-          balance,
-          agency,
-          accountNumber,
-          color,
-          shadow
-        };
-        state.accounts.push(newAccount);
-      }
-
-      saveState();
-      updateAllDashboard();
-
-      formConta.reset();
-      modalConta.close();
-    });
-  }
 
   // 6. Cadastrar/Editar Despesa Recorrente
   const formRecorrente = document.getElementById("form-novo-recorrente");
@@ -3539,13 +3902,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const importBackupInput = document.getElementById("import-backup-input");
 
   if (btnImportData && importBackupInput) {
-    // Clique no botão abre o seletor de arquivo
     btnImportData.addEventListener("click", () => {
-      importBackupInput.value = ""; // Limpa seleção anterior
+      importBackupInput.value = "";
       importBackupInput.click();
     });
 
-    // Processa o arquivo escolhido
     importBackupInput.addEventListener("change", async (e) => {
       const file = e.target.files[0];
       if (!file) return;
@@ -3555,7 +3916,6 @@ document.addEventListener("DOMContentLoaded", () => {
         try {
           const imported = JSON.parse(evt.target.result);
 
-          // Validação básica: precisa ter ao menos "cards" ou "expenses"
           if (
             typeof imported !== "object" ||
             (!Array.isArray(imported.cards) && !Array.isArray(imported.expenses))
@@ -3564,11 +3924,11 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
           }
 
-          if (!confirm("⚠️ Importar este backup irá SUBSTITUIR todos os dados atuais. Deseja continuar?")) {
-            return;
-          }
+          const confirmed = await window.customConfirm(
+            "⚠️ Importar este backup irá SUBSTITUIR todos os dados atuais. Deseja continuar?"
+          );
+          if (!confirmed) return;
 
-          // Restaura os campos do estado com fallback para valores atuais
           state.cards     = Array.isArray(imported.cards)     ? imported.cards     : state.cards;
           state.expenses  = Array.isArray(imported.expenses)  ? imported.expenses  : state.expenses;
           state.revenues  = Array.isArray(imported.revenues)  ? imported.revenues  : state.revenues;
@@ -3576,18 +3936,16 @@ document.addEventListener("DOMContentLoaded", () => {
           state.accounts  = Array.isArray(imported.accounts)  ? imported.accounts  : state.accounts;
           state.recurring = Array.isArray(imported.recurring) ? imported.recurring : state.recurring;
           state.goals     = Array.isArray(imported.goals)     ? imported.goals     : state.goals;
+          state.projects  = Array.isArray(imported.projects)  ? imported.projects  : (state.projects || []);
 
-          if (imported.userName) state.userName = imported.userName;
-          if (imported.tagline)  state.tagline  = imported.tagline;
-          if (imported.theme)    state.theme    = imported.theme;
-          if (imported.tier)     state.tier     = imported.tier;
-
+          if (imported.userName)      state.userName      = imported.userName;
+          if (imported.tagline)       state.tagline       = imported.tagline;
+          if (imported.theme)         state.theme         = imported.theme;
+          if (imported.tier)          state.tier          = imported.tier;
           if (imported.selectedCardId) state.selectedCardId = imported.selectedCardId;
 
-          // Salva localmente e sincroniza com a nuvem (se conectado)
           await saveState();
 
-          // Atualiza a interface
           document.body.className = `theme-${state.theme}`;
           updateThemeIcon();
           updateAllDashboard();
@@ -3817,9 +4175,12 @@ document.addEventListener("DOMContentLoaded", () => {
   updateProfilePhotoUI();
   setupProfilePhoto();
   initFirebase().then((cloudEnabled) => {
-    if (!cloudEnabled) {
-      loadState();
+    // Sincronizar variáveis locais do app.js com o escopo global após a inicialização do Firebase
+    if (window.currentUser) {
+      currentUser = window.currentUser;
+      isCloudEnabled = true;
     }
+    loadState();
   });
 
   // Configurar Filtros e Botões da Aba de Relatórios & BI
