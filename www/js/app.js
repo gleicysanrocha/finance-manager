@@ -242,6 +242,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const storedProjects = getLocalValue("projects");
     const storedUserName = getLocalValue("username");
     const storedTagline = getLocalValue("tagline");
+    const storedCardInvoices = getLocalValue("cardInvoices");
     const hasAnyLocalData = storedCards !== null || storedExpenses !== null || storedRevenues !== null || storedOrders !== null || storedAccounts !== null;
 
     if (hasAnyLocalData) {
@@ -272,8 +273,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const storedProfilePhoto = getLocalValue("profilePhoto");
     state.profilePhoto = storedProfilePhoto || "";
-
-    const storedCardInvoices = getLocalValue("cardInvoices");
 
     updateProfileUI();
     updateTierUI();
