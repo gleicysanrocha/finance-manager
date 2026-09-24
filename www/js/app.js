@@ -1273,12 +1273,12 @@ document.addEventListener("DOMContentLoaded", () => {
         return sum + (cardExpensesByCard[c.id] || []).filter(e => e.status === "Pagas").reduce((s, e) => s + e.value, 0);
       }, 0);
 
-    // 3. Pendentes: despesas normais pendentes + despesas de cartões SEM fatura manual
+    // 3. Pendentes: despesas normais pendentes + comprometidos (incluindo cartões SEM fatura manual)
     const pendingExpenses =
-      nonCardExpenses.filter(e => e.status === "Pendentes").reduce((sum, e) => sum + e.value, 0) +
+      nonCardExpenses.filter(e => e.status === "Pendentes" || e.status === "Comprometido").reduce((sum, e) => sum + e.value, 0) +
       state.cards.reduce((sum, c) => {
         if (getCardManualInvoice(c.id) !== null) return sum;
-        return sum + (cardExpensesByCard[c.id] || []).filter(e => e.status === "Pendentes").reduce((s, e) => s + e.value, 0);
+        return sum + (cardExpensesByCard[c.id] || []).filter(e => e.status === "Pendentes" || e.status === "Comprometido").reduce((s, e) => s + e.value, 0);
       }, 0);
 
     // 4. Receitas totais e contagens
