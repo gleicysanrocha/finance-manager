@@ -1309,7 +1309,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // 6. A Pagar (Contas pendentes que não são no cartão, ou boletos a vencer)
     // Para simplificar e bater com a regra visual, mostramos a soma de despesas pendentes no geral
-    const totalAPagar = pendingExpenses;
+    const monthExpensesAll = getMonthlyExpenses(month, year);
+    const totalAPagar = monthExpensesAll
+      .filter(e => {
+        if (!e.cardId) return e.status === "Pendentes" || e.status === "Comprometido";
+        return getCardManualInvoice(e.cardId) === null && (e.status === "Pendentes" || e.status === "Comprometido");
+      })
+      .reduce((sum, e) => sum + e.value, 0);
 
     // 7. Contas a Receber (A.R): receitas pendentes de qualquer data (global)
     const totalAR = state.revenues
