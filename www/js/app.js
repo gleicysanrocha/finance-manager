@@ -687,62 +687,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Valor manual da fatura cadastrada para um cartão (null quando não há cadastro)
   function getCardManualInvoice(cardId) {
-    const v = state.cardInvoices && state.cardInvoices[cardId];
-    if (v === undefined || v === null || v === "") return null;
-    return Number(v) || 0;
+    // Removido: fatura manual de cartão eliminada
+    return null;
   }
 
   // Despesas do mês/ano com as faturas manuais aplicadas:
   // as despesas de um cartão com fatura manual são substituídas pelo valor da fatura,
   // evitando dupla contagem da mesma despesa na lista e na fatura.
   function getMonthlyExpensesWithInvoices(month, year) {
-    const monthExpenses = getMonthlyExpenses(month, year);
-    const cardBuckets = {};
-    const result = [];
-
-    monthExpenses.forEach(e => {
-      if (!e.cardId) { result.push(e); return; }
-      if (!cardBuckets[e.cardId]) cardBuckets[e.cardId] = [];
-      cardBuckets[e.cardId].push(e);
-    });
-
-    Object.keys(cardBuckets).forEach(cardId => {
-      const manual = getCardManualInvoice(cardId);
-
-      // Filtrar apenas despesas REAIS para cálculo da fatura (excluir despesas virtuais de recorrência/parcela)
-      const realCardExpenses = cardBuckets[cardId].filter(e => !e.isVirtual);
-      const value = manual !== null ? manual : realCardExpenses.reduce((s, e) => s + e.value, 0);
-
-      if (value > 0) {
-        result.push({
-          id: `invoice-card-${cardId}`,
-          description: "Fatura do cartão",
-          value,
-          date: `${year}-${String(month + 1).padStart(2, "0")}-01`,
-          cardId,
-          status: "Comprometido",
-          isInvoice: true
-        });
-      }
-
-      // Manter todas as despesas originais no resultado (incluindo virtuais) para exibição na lista
-      // As despesas recorrentes e parcelas virtuais ainda aparecem na lista de transações,
-      // mas não são incluídas no cálculo da fatura do cartão
-      cardBuckets[cardId].forEach(e => {
-        if (!result.some(r => r.id === e.id)) {
-          result.push(e);
-        }
-      });
-    });
-
-    // Ordenar: faturas primeiro, depois outras despesas por data
-    result.sort((a, b) => {
-      if (a.isInvoice && !b.isInvoice) return -1;
-      if (!a.isInvoice && b.isInvoice) return 1;
-      return new Date(a.date) - new Date(b.date);
-    });
-
-    return result;
+    // Removido: cálculo de fatura de cartão foi eliminada
+    // Despesas com cartão continuam funcionando normalmente, mas sem fatura automática
+    return getMonthlyExpenses(month, year);
   }
 
   // Renderiza o relatório de despesas por categoria de forma dinâmica
