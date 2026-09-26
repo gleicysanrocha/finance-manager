@@ -230,7 +230,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const storedTier = getLocalValue("tier");
-    state.tier = "premium";
+    state.tier = storedTier || "premium";
 
     const storedCards = getLocalValue("cards");
     const storedExpenses = getLocalValue("expenses");
@@ -708,7 +708,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     Object.keys(cardBuckets).forEach(cardId => {
       const manual = getCardManualInvoice(cardId);
-      const value = manual !== null ? manual : cardBuckets[cardId].reduce((s, e) => s + e.value, 0);
+
+      // Filtrar apenas despesas REAIS para cálculo da fatura (excluir despesas virtuais de recorrência/parcela)
+      const realCardExpenses = cardBuckets[cardId].filter(e => !e.isVirtual);
+      const value = manual !== null ? manual : realCardExpenses.reduce((s, e) => s + e.value, 0);
+
       if (value > 0) {
         result.push({
           id: `invoice-card-${cardId}`,
@@ -720,6 +724,22 @@ document.addEventListener("DOMContentLoaded", () => {
           isInvoice: true
         });
       }
+
+      // Manter todas as despesas originais no resultado (incluindo virtuais) para exibição na lista
+      // As despesas recorrentes e parcelas virtuais ainda aparecem na lista de transações,
+      // mas não são incluídas no cálculo da fatura do cartão
+      cardBuckets[cardId].forEach(e => {
+        if (!result.some(r => r.id === e.id)) {
+          result.push(e);
+        }
+      });
+    });
+
+    // Ordenar: faturas primeiro, depois outras despesas por data
+    result.sort((a, b) => {
+      if (a.isInvoice && !b.isInvoice) return -1;
+      if (!a.isInvoice && b.isInvoice) return 1;
+      return new Date(a.date) - new Date(b.date);
     });
 
     return result;
