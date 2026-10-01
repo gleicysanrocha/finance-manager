@@ -24,7 +24,10 @@ document.addEventListener("DOMContentLoaded", () => {
     selectedCardId: "card-1",
     tier: "premium",
     // Faturas cadastradas manualmente por cartão (key = cardId, value = valor da fatura)
-    cardInvoices: {}
+    cardInvoices: {},
+    // Despesas fixas pagas com cartão de crédito (separadas do valor da fatura)
+    fixedCardExpenses: [],
+    fixedCardExpensesConfig: {}
   };
 
   // Frases financeiras rotativas para o Tagline
@@ -685,31 +688,26 @@ document.addEventListener("DOMContentLoaded", () => {
     }));
   }
 
-  // Valor manual da fatura cadastrada para um cartão (null quando não há cadastro)
   function getCardManualInvoice(cardId) {
     const v = state.cardInvoices && state.cardInvoices[cardId];
     if (v === undefined || v === null || v === "") return null;
     return Number(v) || 0;
   }
 
-  // Despesas do mês/ano com as faturas manuais aplicadas:
-  // as despesas de um cartão com fatura manual são substituídas pelo valor da fatura,
-  // evitando dupla contagem da mesma despesa na lista e na fatura.
   function getMonthlyExpensesWithInvoices(month, year) {
-    const monthExpenses = getMonthlyExpenses(month, year);
+    const all = getMonthlyExpenses(month, year);
+    const realExpenses = all.filter(e => !e.isVirtual);
     const cardBuckets = {};
-    const result = [];
-
-    monthExpenses.forEach(e => {
-      if (!e.cardId) { result.push(e); return; }
+    realExpenses.forEach(e => {
+      if (!e.cardId || e.cardId === "") return;
       if (!cardBuckets[e.cardId]) cardBuckets[e.cardId] = [];
       cardBuckets[e.cardId].push(e);
     });
-
+    const result = [...all];
     Object.keys(cardBuckets).forEach(cardId => {
       const manual = getCardManualInvoice(cardId);
-      const realExpensesOnly = cardBuckets[cardId].filter(e => !e.isVirtual);
-      const value = manual !== null ? manual : realExpensesOnly.reduce((s, e) => s + e.value, 0);
+      const realCardExpenses = cardBuckets[cardId].filter(e => !e.isVirtual);
+      const value = (manual !== null) ? manual : realCardExpenses.reduce((s, e) => s + (e.value || 0), 0);
       if (value > 0) {
         result.push({
           id: `invoice-card-${cardId}`,
@@ -718,11 +716,11 @@ document.addEventListener("DOMContentLoaded", () => {
           date: `${year}-${String(month + 1).padStart(2, "0")}-01`,
           cardId,
           status: "Comprometido",
-          isInvoice: true
+          isInvoice: true,
+          isVirtual: false
         });
       }
     });
-
     return result;
   }
 
@@ -1253,70 +1251,22 @@ document.addEventListener("DOMContentLoaded", () => {
       return d.getMonth() === month && d.getFullYear() === year;
     });
 
-    // Separa as despesas do mês entre normais (sem cartão) e vinculadas a cartões
-    const nonCardExpenses = currentMonthExpenses.filter(e => !e.cardId);
-    const cardExpensesByCard = {};
-    currentMonthExpenses.forEach(e => {
-      if (!e.cardId) return;
-      if (!cardExpensesByCard[e.cardId]) cardExpensesByCard[e.cardId] = [];
-      cardExpensesByCard[e.cardId].push(e);
+    const fixedCardExpenses = (state.fixedCardExpenses || []).filter(f => {
+      const d = new Date(f.date + "T00:00:00");
+      return d.getMonth() === month && d.getFullYear() === year;
     });
+    const totalFixedCardExpenses = fixedCardExpenses.reduce((sum, f) => sum + (f.value || 0), 0);
 
-    // 1. Total Despesas: despesas normais + contribuição de cada cartão.
-    //    Cartão com fatura manual usa o valor da fatura (não duplica as despesas do cartão).
-    const totalExpenses = getMonthlyExpensesWithInvoices(month, year).reduce((sum, e) => sum + e.value, 0);
-
-    // 2. Pagas (Líquido): despesas normais pagas + despesas de cartões SEM fatura manual
-    const paidExpenses =
-      nonCardExpenses.filter(e => e.status === "Pagas").reduce((sum, e) => sum + e.value, 0) +
-      state.cards.reduce((sum, c) => {
-        if (getCardManualInvoice(c.id) !== null) return sum;
-        return sum + (cardExpensesByCard[c.id] || []).filter(e => e.status === "Pagas").reduce((s, e) => s + e.value, 0);
-      }, 0);
-
-    // 3. Pendentes: despesas normais pendentes + comprometidos (incluindo cartões SEM fatura manual)
-    const pendingExpenses =
-      nonCardExpenses.filter(e => e.status === "Pendentes" || e.status === "Comprometido").reduce((sum, e) => sum + e.value, 0) +
-      state.cards.reduce((sum, c) => {
-        if (getCardManualInvoice(c.id) !== null) return sum;
-        return sum + (cardExpensesByCard[c.id] || []).filter(e => e.status === "Pendentes" || e.status === "Comprometido").reduce((s, e) => s + e.value, 0);
-      }, 0);
+    const totalExpenses = currentMonthExpenses.reduce((sum, e) => sum + e.value, 0) + totalFixedCardExpenses;
+    const paidExpenses = currentMonthExpenses.filter(e => e.status === "Pagas").reduce((sum, e) => sum + e.value, 0) + fixedCardExpenses.filter(f => f.status === "Pagas").reduce((sum, f) => sum + (f.value || 0), 0);
+    const pendingExpenses = currentMonthExpenses.filter(e => e.status === "Pendentes" || e.status === "Comprometido").reduce((sum, e) => sum + e.value, 0);
 
     // 4. Receitas totais e contagens
     const totalRevenues = currentMonthRevenues.reduce((sum, r) => sum + r.value, 0);
     const concRevenues = currentMonthRevenues.filter(r => r.category === "Recebido");
     const pendRevenues = currentMonthRevenues.filter(r => r.category === "Pendente");
 
-    // 5. Limite dos cartões (seletor dinâmico ou soma total)
-    const activeCard = state.cards.find(c => c.id === state.selectedCardId) || state.cards[0];
-    const totalLimit = activeCard ? activeCard.limit : 0;
-
-    // 5.1. Fatura do cartão ativo: valor manual quando cadastrado, senão despesas "Pagas" do cartão
-    const activeCardExpenses = currentMonthExpenses.filter(e => {
-      return e.cardId === (activeCard ? activeCard.id : "");
-    });
-
-    const activeCardManualInvoice = activeCard ? getCardManualInvoice(activeCard.id) : null;
-
-    const activeCardFatura = activeCardManualInvoice !== null
-      ? activeCardManualInvoice
-      : activeCardExpenses.filter(e => e.status === "Pagas").reduce((sum, e) => sum + e.value, 0);
-
-    const activeCardComprometido = activeCardManualInvoice !== null
-      ? 0 // já está incluída no valor manual da fatura
-      : activeCardExpenses.filter(e => e.status === "Comprometido").reduce((sum, e) => sum + e.value, 0);
-
-    const activeCardDisp = totalLimit - activeCardFatura - activeCardComprometido;
-
-    // 6. A Pagar (Contas pendentes que não são no cartão, ou boletos a vencer)
-    // Para simplificar e bater com a regra visual, mostramos a soma de despesas pendentes no geral
-    const monthExpensesAll = getMonthlyExpenses(month, year);
-    const totalAPagar = monthExpensesAll
-      .filter(e => {
-        if (!e.cardId) return e.status === "Pendentes" || e.status === "Comprometido";
-        return getCardManualInvoice(e.cardId) === null && (e.status === "Pendentes" || e.status === "Comprometido");
-      })
-      .reduce((sum, e) => sum + e.value, 0);
+    const totalAPagar = pendingExpenses; // Para simplificar, a soma de todas as pendentes
 
     // 7. Contas a Receber (A.R): receitas pendentes de qualquer data (global)
     const totalAR = state.revenues
@@ -1327,23 +1277,12 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("val-despesas").innerText = formatCurrency(totalExpenses);
     document.getElementById("val-pagas").innerText = formatCurrency(paidExpenses);
     document.getElementById("val-pendentes").innerText = formatCurrency(pendingExpenses);
-    
+
     document.getElementById("val-receitas").innerText = formatCurrency(totalRevenues);
     document.getElementById("sub-receitas").innerText = `${pendRevenues.length} pend. - ${concRevenues.length} conc.`;
 
-    document.getElementById("val-limite").innerText = formatCurrency(totalLimit);
-    document.getElementById("sub-limite").innerText = `Disp: ${formatCurrency(activeCardDisp)}`;
-
     document.getElementById("val-apagar").innerText = formatCurrency(totalAPagar);
     document.getElementById("val-ar").innerText = formatCurrency(totalAR);
-
-    return {
-      activeCard,
-      totalLimit,
-      activeCardFatura,
-      activeCardComprometido,
-      activeCardDisp
-    };
   }
 
   // ==========================================================================

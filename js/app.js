@@ -24,7 +24,10 @@ document.addEventListener("DOMContentLoaded", () => {
     selectedCardId: "card-1",
     tier: "premium",
     // Faturas cadastradas manualmente por cartão (key = cardId, value = valor da fatura)
-    cardInvoices: {}
+    cardInvoices: {},
+    // Despesas fixas pagas com cartão de crédito (separadas do valor da fatura)
+    fixedCardExpenses: [],
+    fixedCardExpensesConfig: {}
   };
 
   // Frases financeiras rotativas para o Tagline
@@ -686,11 +689,39 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function getCardManualInvoice(cardId) {
-    return null;
+    const v = state.cardInvoices && state.cardInvoices[cardId];
+    if (v === undefined || v === null || v === "") return null;
+    return Number(v) || 0;
   }
 
   function getMonthlyExpensesWithInvoices(month, year) {
-    return getMonthlyExpenses(month, year);
+    const all = getMonthlyExpenses(month, year);
+    const realExpenses = all.filter(e => !e.isVirtual);
+    const cardBuckets = {};
+    realExpenses.forEach(e => {
+      if (!e.cardId || e.cardId === "") return;
+      if (!cardBuckets[e.cardId]) cardBuckets[e.cardId] = [];
+      cardBuckets[e.cardId].push(e);
+    });
+    const result = [...all];
+    Object.keys(cardBuckets).forEach(cardId => {
+      const manual = getCardManualInvoice(cardId);
+      const realCardExpenses = cardBuckets[cardId].filter(e => !e.isVirtual);
+      const value = (manual !== null) ? manual : realCardExpenses.reduce((s, e) => s + (e.value || 0), 0);
+      if (value > 0) {
+        result.push({
+          id: `invoice-card-${cardId}`,
+          description: "Fatura do cartão",
+          value,
+          date: `${year}-${String(month + 1).padStart(2, "0")}-01`,
+          cardId,
+          status: "Comprometido",
+          isInvoice: true,
+          isVirtual: false
+        });
+      }
+    });
+    return result;
   }
 
   // Renderiza o relatório de despesas por categoria de forma dinâmica
@@ -1220,8 +1251,14 @@ document.addEventListener("DOMContentLoaded", () => {
       return d.getMonth() === month && d.getFullYear() === year;
     });
 
-    const totalExpenses = currentMonthExpenses.reduce((sum, e) => sum + e.value, 0);
-    const paidExpenses = currentMonthExpenses.filter(e => e.status === "Pagas").reduce((sum, e) => sum + e.value, 0);
+    const fixedCardExpenses = (state.fixedCardExpenses || []).filter(f => {
+      const d = new Date(f.date + "T00:00:00");
+      return d.getMonth() === month && d.getFullYear() === year;
+    });
+    const totalFixedCardExpenses = fixedCardExpenses.reduce((sum, f) => sum + (f.value || 0), 0);
+
+    const totalExpenses = currentMonthExpenses.reduce((sum, e) => sum + e.value, 0) + totalFixedCardExpenses;
+    const paidExpenses = currentMonthExpenses.filter(e => e.status === "Pagas").reduce((sum, e) => sum + e.value, 0) + fixedCardExpenses.filter(f => f.status === "Pagas").reduce((sum, f) => sum + (f.value || 0), 0);
     const pendingExpenses = currentMonthExpenses.filter(e => e.status === "Pendentes" || e.status === "Comprometido").reduce((sum, e) => sum + e.value, 0);
 
     // 4. Receitas totais e contagens
