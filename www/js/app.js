@@ -1257,9 +1257,9 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     const totalFixedCardExpenses = fixedCardExpenses.reduce((sum, f) => sum + (f.value || 0), 0);
 
-    const totalExpenses = currentMonthExpenses.reduce((sum, e) => sum + e.value, 0) + totalFixedCardExpenses;
+    const totalExpenses = currentMonthExpenses.filter(e => e.status !== "Comprometido").reduce((sum, e) => sum + e.value, 0) + totalFixedCardExpenses;
     const paidExpenses = currentMonthExpenses.filter(e => e.status === "Pagas").reduce((sum, e) => sum + e.value, 0) + fixedCardExpenses.filter(f => f.status === "Pagas").reduce((sum, f) => sum + (f.value || 0), 0);
-    const pendingExpenses = currentMonthExpenses.filter(e => e.status === "Pendentes" || e.status === "Comprometido").reduce((sum, e) => sum + e.value, 0);
+    const pendingExpenses = currentMonthExpenses.filter(e => e.status === "Pendentes").reduce((sum, e) => sum + e.value, 0);
 
     // 4. Receitas totais e contagens
     const totalRevenues = currentMonthRevenues.reduce((sum, r) => sum + r.value, 0);
