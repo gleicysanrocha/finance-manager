@@ -708,7 +708,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     Object.keys(cardBuckets).forEach(cardId => {
       const manual = getCardManualInvoice(cardId);
-      const value = manual !== null ? manual : cardBuckets[cardId].reduce((s, e) => s + e.value, 0);
+      const realExpensesOnly = cardBuckets[cardId].filter(e => !e.isVirtual);
+      const value = manual !== null ? manual : realExpensesOnly.reduce((s, e) => s + e.value, 0);
       if (value > 0) {
         result.push({
           id: `invoice-card-${cardId}`,
