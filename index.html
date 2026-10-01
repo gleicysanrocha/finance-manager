@@ -153,17 +153,6 @@
             <div class="metric-subtext" id="sub-receitas">0 pend. - 0 conc.</div>
           </div>
 
-          <!-- Card 5: Limite -->
-          <div class="metric-card limite glass-effect">
-            <div class="metric-header">
-              <span class="metric-title">LIMITE CARTÃO</span>
-              <div class="metric-icon text-primary" id="icon-limite-svg"></div>
-            </div>
-            <div class="metric-value text-primary" id="val-limite">R$ 0,00</div>
-            <div class="metric-subtext" id="sub-limite">Disp: R$ 0,00</div>
-          </div>
-
-          <!-- Card 6: A Pagar -->
           <div class="metric-card a-pagar glass-effect">
             <div class="metric-header">
               <span class="metric-title">A PAGAR</span>
@@ -188,12 +177,6 @@
         <section class="actions-container" style="margin-top: 1.5rem;">
           <button class="action-btn btn-expense" id="btn-nova-despesa">
             <span class="action-icon" id="act-icon-exp"></span> Nova Despesa
-          </button>
-          <button class="action-btn btn-os" id="btn-nova-os">
-            <span class="action-icon" id="act-icon-os"></span> Nova OS
-          </button>
-          <button class="action-btn btn-card" id="btn-novo-cartao">
-            <span class="action-icon" id="act-icon-card"></span> Novo Cartão
           </button>
           <button class="action-btn btn-income" id="btn-nova-receita">
             <span class="action-icon" id="act-icon-inc"></span> Nova Receita
@@ -264,24 +247,8 @@
 
         <!-- Seção Intermediária: Cartões e Gráfico de Fluxo de Caixa -->
         <section class="mid-dashboard-grid" style="margin-top: 1.5rem;">
-          <!-- Bloco Esquerdo: Meus Cartões -->
-          <div class="cards-showcase-section glass-effect">
-            <div class="section-title-container">
-              <div class="icon-title-wrapper">
-                <span id="title-icon-card"></span>
-                <h3>Meus Cartões de Crédito</h3>
-              </div>
-              <span class="cards-count-badge" id="cards-count">1</span>
-            </div>
-
-            <!-- Carousel / Lista de Cartões Físicos Interativos -->
-            <div class="cards-carousel" id="cards-list-container">
-              <!-- Os cartões de crédito dinâmicos 3D serão injetados aqui via JS -->
-            </div>
-          </div>
-
           <!-- Bloco Direito: Análise de Fluxo de Caixa (Gráfico SVG) -->
-          <div class="chart-section glass-effect">
+          <div class="chart-section glass-effect" style="width: 100%;">
             <div class="section-title-container">
               <div class="icon-title-wrapper">
                 <span id="title-icon-report"></span>
@@ -304,9 +271,6 @@
             <div class="tabs-container">
               <button class="tab-btn active" id="tab-despesas" data-section="despesas">
                 <span class="tab-icon" id="tab-icon-exp"></span> Despesas (<span id="count-despesas">0</span>)
-              </button>
-              <button class="tab-btn" id="tab-os" data-section="os">
-                <span class="tab-icon" id="tab-icon-os"></span> Ordens de Serviço (<span id="count-os">0</span>)
               </button>
               <button class="tab-btn" id="tab-saldo-conta" data-section="saldo-conta">
                 <span class="tab-icon" id="tab-icon-saldo"></span> Saldo em Conta (<span id="count-saldo-conta">0</span>)
@@ -344,31 +308,6 @@
                 <div class="empty-state-container" id="empty-despesas" style="display: none;">
                   <div class="empty-illustration" id="empty-exp-svg"></div>
                   <p>Nenhuma despesa registrada neste mês.</p>
-                </div>
-              </div>
-            </div>
-
-            <!-- Tabela de Ordens de Serviço -->
-            <div class="tab-content-panel" id="panel-os">
-              <div class="table-wrapper">
-                <table class="premium-table">
-                  <thead>
-                    <tr>
-                      <th>Cliente</th>
-                      <th>Serviço Realizado</th>
-                      <th>Data</th>
-                      <th>Status</th>
-                      <th>Valor</th>
-                      <th class="text-right">Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody id="tbody-os">
-                    <!-- Injetado por JS -->
-                  </tbody>
-                </table>
-                <div class="empty-state-container" id="empty-os" style="display: none;">
-                  <div class="empty-illustration" id="empty-os-svg"></div>
-                  <p>Nenhuma ordem de serviço registrada neste mês.</p>
                 </div>
               </div>
             </div>
@@ -1020,109 +959,6 @@
         <footer class="modal-footer">
           <button type="button" class="btn-cancel" id="btn-cancelar-despesa">Cancelar</button>
           <button type="submit" class="btn-submit btn-expense-submit">Salvar Despesa</button>
-        </footer>
-      </form>
-    </div>
-  </dialog>
-
-  <!-- 2. Modal Nova OS -->
-  <dialog class="premium-modal glass-effect" id="modal-os-dialog">
-    <div class="modal-content">
-      <header class="modal-header">
-        <h3 id="modal-os-title">Nova Ordem de Serviço (OS)</h3>
-        <button class="modal-close-btn" id="close-modal-os" aria-label="Fechar">&times;</button>
-      </header>
-      <form id="form-nova-os" method="dialog">
-        <input type="hidden" id="os-id">
-        <div class="form-group">
-          <label for="os-customer">Nome do Cliente</label>
-          <input type="text" id="os-customer" placeholder="Ex: Cliente Exemplo" required>
-        </div>
-        <div class="form-group">
-          <label for="os-service">Serviço</label>
-          <input type="text" id="os-service" placeholder="Ex: Criação de Logotipo" required>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label for="os-val">Valor do Contrato (R$)</label>
-            <input type="number" step="0.01" id="os-val" placeholder="0,00" required>
-          </div>
-          <div class="form-group">
-            <label for="os-date">Data do Fechamento</label>
-            <input type="date" id="os-date" required>
-          </div>
-        </div>
-        <div class="form-group">
-          <label for="os-status">Status</label>
-          <select id="os-status" required>
-            <option value="Pendente" selected>Pendente (Em andamento)</option>
-            <option value="Concluído">Concluído (Entregue)</option>
-          </select>
-        </div>
-        <footer class="modal-footer">
-          <button type="button" class="btn-cancel" id="btn-cancelar-os">Cancelar</button>
-          <button type="submit" class="btn-submit btn-os-submit">Salvar OS</button>
-        </footer>
-      </form>
-    </div>
-  </dialog>
-
-  <!-- 3. Modal Novo Cartão -->
-  <dialog class="premium-modal glass-effect" id="modal-cartao-dialog">
-    <div class="modal-content">
-      <header class="modal-header">
-        <h3>Novo Cartão de Crédito</h3>
-        <button class="modal-close-btn" id="close-modal-cartao" aria-label="Fechar">&times;</button>
-      </header>
-      <form id="form-novo-cartao" method="dialog">
-        <div class="form-group">
-          <label for="card-name">Nome do Cartão / Apelido</label>
-          <input type="text" id="card-name" placeholder="Ex: Mastercard Platinum" required>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label for="card-brand">Bandeira</label>
-            <select id="card-brand" required>
-              <option value="MASTERCARD" selected>Mastercard</option>
-              <option value="VISA">Visa</option>
-              <option value="ELO">Elo</option>
-              <option value="AMEX">American Express</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="card-digits">Últimos 4 Dígitos</label>
-            <input type="text" id="card-digits" maxlength="4" placeholder="Ex: 8046" required>
-          </div>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label for="card-limit">Limite Total (R$)</label>
-            <input type="number" step="0.01" id="card-limit" placeholder="3227,00" required>
-          </div>
-          <div class="form-group">
-            <label for="card-color">Estilo de Cor</label>
-            <select id="card-color" required>
-              <option value="linear-gradient(135deg, #097d52 0%, #0fb77a 100%)">Verde Esmeralda (Original)</option>
-              <option value="linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%)">Azul Indigo & Ciano</option>
-              <option value="linear-gradient(135deg, #f59e0b 0%, #e11d48 100%)">Pôr do Sol Flamejante</option>
-              <option value="linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)">Deep Purple Night</option>
-              <option value="linear-gradient(135deg, #0f172a 0%, #334155 100%)">Slate Premium Black</option>
-            </select>
-          </div>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label for="card-closing">Dia do Fechamento</label>
-            <input type="number" min="1" max="31" id="card-closing" placeholder="3" required>
-          </div>
-          <div class="form-group">
-            <label for="card-due">Dia do Vencimento</label>
-            <input type="number" min="1" max="31" id="card-due" placeholder="10" required>
-          </div>
-        </div>
-        <footer class="modal-footer">
-          <button type="button" class="btn-cancel" id="btn-cancelar-cartao">Cancelar</button>
-          <button type="submit" class="btn-submit btn-card-submit">Criar Cartão</button>
         </footer>
       </form>
     </div>
