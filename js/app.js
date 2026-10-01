@@ -699,7 +699,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const realExpenses = all.filter(e => !e.isVirtual);
     const cardBuckets = {};
     realExpenses.forEach(e => {
-      if (!e.cardId || e.cardId === "") return;
+      if (!e.cardId || e.cardId === "" || e.cardId === "cartao-credito") return;
       if (!cardBuckets[e.cardId]) cardBuckets[e.cardId] = [];
       cardBuckets[e.cardId].push(e);
     });
@@ -2723,10 +2723,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Métodos padrões de pagamento
     let optionsHTML = `
-      <option value="pix" selected>⚡ Pix</option>
+      <option value="" selected>💳 Dinheiro / Outro</option>
       <option value="boleto">📄 Boleto Bancário</option>
-      <option value="dinheiro">💵 Dinheiro (Espécie)</option>
-      <option value="debito">💳 Cartão de Débito</option>
+      <option value="pix">⚡ Pix</option>
+      <option value="cartao-credito">💳 Cartão de Crédito</option>
     `;
     
     // Adicionar cartões de crédito dinâmicos
@@ -3319,7 +3319,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const select = document.getElementById("exp-installments");
     const hint = document.getElementById("exp-installment-hint");
     if (!cardSelect || !group || !select) return;
-    const isCard = cardSelect.value.startsWith("card-");
+    const isCard = cardSelect.value.startsWith("card-") || cardSelect.value === "cartao-credito";
     group.style.display = isCard ? "flex" : "none";
     if (!hint) return;
 
@@ -3418,7 +3418,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const installments = parseInt(document.getElementById("exp-installments").value, 10) || 1;
       // Compra parcelada no cartão pertence sempre à fatura: normaliza para "Comprometido"
       // (a menos que o usuário tenha marcado explicitamente como paga)
-      const finalStatus = installments > 1 ? (status === "Pagas" ? "Pagas" : "Comprometido") : status;
+      const finalStatus = (installments > 1 && (cardId.startsWith("card-") || cardId === "cartao-credito")) ? (status === "Pagas" ? "Pagas" : "Comprometido") : status;
       const paymentDate = finalStatus === "Pagas" ? document.getElementById("exp-pay-date").value : "";
 
       const rawPaidVal = document.getElementById("exp-paid-val").value;
